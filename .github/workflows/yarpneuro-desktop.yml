@@ -69,17 +69,9 @@ jobs:
         with:
           ref: ${{ github.sha }}
 
-      - name: Clear Bun install cache
-        shell: pwsh
-        run: |
-          $cache = Join-Path $env:USERPROFILE ".bun\install\cache"
-          if (Test-Path -LiteralPath $cache) {
-            Remove-Item -LiteralPath $cache -Recurse -Force
-          }
-
       - uses: ./.github/actions/setup-bun
         with:
-          cache: "false"
+          install-bun-version: "1.4.0"
 
       - name: Build desktop
         working-directory: packages/desktop
