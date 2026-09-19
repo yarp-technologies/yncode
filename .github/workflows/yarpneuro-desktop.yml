@@ -78,6 +78,8 @@ jobs:
           }
 
       - uses: ./.github/actions/setup-bun
+        with:
+          cache: "false"
 
       - name: Build desktop
         working-directory: packages/desktop
