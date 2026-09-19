@@ -1,6 +1,9 @@
 name: YarpNeuro Desktop
 
 on:
+  push:
+    tags:
+      - v*-yarp.*
   workflow_dispatch:
     inputs:
       tag:
@@ -50,7 +53,7 @@ jobs:
           fi
           checksums=packages/desktop/dist/SHA256SUMS
           sha256sum "${files[@]}" > "$checksums"
-          release_tag="${{ inputs.tag }}"
+          release_tag="${{ inputs.tag || github.ref_name }}"
           gh release create "$release_tag" "${files[@]}" "$checksums" \
             --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \
