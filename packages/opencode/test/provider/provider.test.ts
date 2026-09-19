@@ -129,6 +129,36 @@ it.instance(
   },
 )
 
+it.instance(
+  "ignores configured providers other than YarpNeuro",
+  Effect.gen(function* () {
+    const providers = yield* list
+    expect(Object.keys(providers)).toEqual([ProviderV2.ID.make("yarp-neuro")])
+  }),
+  {
+    config: {
+      provider: {
+        "yarp-neuro": {
+          models: {
+            "yarp-model": {},
+          },
+        },
+        "custom-provider": {
+          models: {
+            "custom-model": {},
+          },
+        },
+      },
+    },
+  },
+)
+
+it.instance("registers only YarpNeuro as a built-in provider auth plugin", Effect.gen(function* () {
+  const plugin = yield* Plugin.Service
+  const hooks = yield* plugin.list()
+  expect(hooks.flatMap((hook) => (hook.auth ? [hook.auth.provider] : []))).toEqual(["yarp-neuro"])
+}))
+
 const alphaProviderConfig = {
   provider: {
     "custom-provider": {

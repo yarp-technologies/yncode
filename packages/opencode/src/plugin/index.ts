@@ -9,20 +9,9 @@ import type {
 import { Config } from "@/config/config"
 import { createOpencodeClient } from "@opencode-ai/sdk"
 import { ServerAuth } from "@/server/auth"
-import { CodexAuthPlugin } from "./openai/codex"
 import { Session } from "@/session/session"
 import { NamedError } from "@opencode-ai/core/util/error"
-import { CopilotAuthPlugin } from "./github-copilot/copilot"
-import { ModalPlugin } from "./modal/modal"
 import { YarpNeuroAuthPlugin } from "./yarp-neuro"
-import { gitlabAuthPlugin as GitlabAuthPlugin } from "opencode-gitlab-auth"
-import { PoeAuthPlugin } from "opencode-poe-auth"
-import { CloudflareAIGatewayAuthPlugin, CloudflareWorkersAuthPlugin } from "./cloudflare"
-import { AzureAuthPlugin } from "./azure"
-import { DigitalOceanAuthPlugin } from "./digitalocean"
-import { XaiAuthPlugin } from "./xai"
-import { CerebrasPlugin } from "./cerebras"
-import { SnowflakeCortexAuthPlugin } from "./snowflake-cortex"
 import { Effect, Layer, Context } from "effect"
 import { EffectBridge } from "@/effect/bridge"
 import { InstanceState } from "@/effect/instance-state"
@@ -65,26 +54,8 @@ export function experimentalWebSocketsEnabled(input: { enabled: boolean; channel
 }
 
 // Built-in plugins that are directly imported (not installed from npm)
-function internalPlugins(flags: RuntimeFlags.Info): PluginInstance[] {
-  return [
-    // Temporary rollout: pre-release builds use WebSockets by default; releases require explicit opt-in.
-    (input) =>
-      CodexAuthPlugin(input, {
-        experimentalWebSockets: experimentalWebSocketsEnabled({ enabled: flags.experimentalWebSockets }),
-      }),
-    CopilotAuthPlugin,
-    ModalPlugin,
-    YarpNeuroAuthPlugin,
-    GitlabAuthPlugin,
-    PoeAuthPlugin,
-    CloudflareWorkersAuthPlugin,
-    CloudflareAIGatewayAuthPlugin,
-    AzureAuthPlugin,
-    DigitalOceanAuthPlugin,
-    SnowflakeCortexAuthPlugin,
-    XaiAuthPlugin,
-    CerebrasPlugin,
-  ]
+function internalPlugins(): PluginInstance[] {
+  return [YarpNeuroAuthPlugin]
 }
 
 function isServerPlugin(value: unknown): value is PluginInstance {
@@ -169,7 +140,7 @@ const layer = Layer.effect(
           $: typeof Bun === "undefined" ? undefined : Bun.$,
         }
 
-        for (const plugin of flags.disableDefaultPlugins ? [] : internalPlugins(flags)) {
+        for (const plugin of flags.disableDefaultPlugins ? [] : internalPlugins()) {
           const init = yield* Effect.tryPromise({
             try: () => plugin(input),
             catch: errorMessage,

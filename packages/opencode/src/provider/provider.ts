@@ -1447,7 +1447,9 @@ const layer = Layer.effect(
         const plugins = yield* plugin.list()
 
         // now read config providers - includes any modifications from plugin config() hook
-        const configProviders = Object.entries(cfg.provider ?? {})
+        const configProviders = Object.entries(cfg.provider ?? {}).filter(
+          ([providerID]) => providerID === YarpNeuroProviderID,
+        )
         const disabled = new Set(cfg.disabled_providers ?? [])
         const enabled = cfg.enabled_providers ? new Set(cfg.enabled_providers) : null
 

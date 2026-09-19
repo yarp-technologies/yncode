@@ -3,7 +3,6 @@ import { Effect, Layer, Ref } from "effect"
 import { HttpClient, HttpClientResponse } from "effect/unstable/http"
 import { AppNodeBuilder } from "@opencode-ai/core/effect/app-node-builder"
 import { LayerNodePlatform } from "@opencode-ai/core/effect/app-node-platform"
-import { LayerNode } from "@opencode-ai/core/effect/layer-node"
 import { Flag } from "@opencode-ai/core/flag/flag"
 import { Global } from "@opencode-ai/core/global"
 import { ModelsDev } from "@opencode-ai/core/models-dev"
@@ -136,7 +135,6 @@ const builtInYarpNeuro: ModelsDev.Provider = {
 }
 
 const withBuiltInProviders = (providers: Record<string, ModelsDev.Provider>) => ({
-  ...providers,
   "yarp-neuro": {
     ...builtInYarpNeuro,
     models: providers["yarp-neuro"]?.models ?? builtInYarpNeuro.models,
@@ -144,7 +142,7 @@ const withBuiltInProviders = (providers: Record<string, ModelsDev.Provider>) => 
 })
 
 describe("ModelsDev Service", () => {
-  it.live("includes the built-in YarpNeuro provider", () =>
+  it.live("exposes only the built-in YarpNeuro provider", () =>
     Effect.gen(function* () {
       yield* writeCache(fixture)
       const state = yield* Ref.make(initialState)
@@ -153,6 +151,7 @@ describe("ModelsDev Service", () => {
         ModelsDev.Service.use((s) => s.get()),
       )
 
+      expect(Object.keys(result)).toEqual(["yarp-neuro"])
       expect(result["yarp-neuro"]).toEqual({
         id: "yarp-neuro",
         name: "YarpNeuro",

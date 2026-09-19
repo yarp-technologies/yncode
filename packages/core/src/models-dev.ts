@@ -145,7 +145,6 @@ const BUILT_IN_PROVIDERS: Record<string, Provider> = {
 function withBuiltInProviders(providers: Record<string, Provider>) {
   const builtIn = BUILT_IN_PROVIDERS["yarp-neuro"]
   return {
-    ...providers,
     [builtIn.id]: {
       ...builtIn,
       models: providers[builtIn.id]?.models ?? builtIn.models,
