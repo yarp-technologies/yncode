@@ -126,7 +126,77 @@ const initialState: MockState = {
   calls: [],
 }
 
+const builtInYarpNeuro: ModelsDev.Provider = {
+  id: "yarp-neuro",
+  name: "YarpNeuro",
+  env: [],
+  api: "https://neuro.deyna.xyz/v1",
+  npm: "@ai-sdk/openai-compatible",
+  models: {},
+}
+
+const withBuiltInProviders = (providers: Record<string, ModelsDev.Provider>) => ({
+  ...providers,
+  "yarp-neuro": {
+    ...builtInYarpNeuro,
+    models: providers["yarp-neuro"]?.models ?? builtInYarpNeuro.models,
+  },
+})
+
 describe("ModelsDev Service", () => {
+  it.live("includes the built-in YarpNeuro provider", () =>
+    Effect.gen(function* () {
+      yield* writeCache(fixture)
+      const state = yield* Ref.make(initialState)
+      const result = yield* provided(
+        state,
+        ModelsDev.Service.use((s) => s.get()),
+      )
+
+      expect(result["yarp-neuro"]).toEqual({
+        id: "yarp-neuro",
+        name: "YarpNeuro",
+        env: [],
+        api: "https://neuro.deyna.xyz/v1",
+        npm: "@ai-sdk/openai-compatible",
+        models: {},
+      })
+    }),
+  )
+
+  it.live("preserves catalog models when the built-in YarpNeuro provider collides", () =>
+    Effect.gen(function* () {
+      const catalogModel: ModelsDev.Model = {
+        id: "catalog-model",
+        name: "Catalog Model",
+        release_date: "2026-01-01",
+        attachment: false,
+        reasoning: false,
+        temperature: true,
+        tool_call: true,
+        limit: { context: 128000, output: 8192 },
+      }
+      yield* writeCache({
+        ...fixture,
+        "yarp-neuro": {
+          ...builtInYarpNeuro,
+          api: "https://catalog.example/v1",
+          models: { "catalog-model": catalogModel },
+        },
+      })
+      const state = yield* Ref.make(initialState)
+      const result = yield* provided(
+        state,
+        ModelsDev.Service.use((s) => s.get()),
+      )
+
+      expect(result["yarp-neuro"]).toEqual({
+        ...builtInYarpNeuro,
+        models: { "catalog-model": catalogModel },
+      })
+    }),
+  )
+
   it.live("get() returns providers from disk when cache file exists", () =>
     Effect.gen(function* () {
       yield* writeCache(fixture)
@@ -135,7 +205,7 @@ describe("ModelsDev Service", () => {
         state,
         ModelsDev.Service.use((s) => s.get()),
       )
-      expect(result).toEqual(fixture)
+      expect(result).toEqual(withBuiltInProviders(fixture))
       const final = yield* Ref.get(state)
       expect(final.calls).toEqual([])
     }),
@@ -148,7 +218,7 @@ describe("ModelsDev Service", () => {
         state,
         ModelsDev.Service.use((s) => s.get()),
       )
-      expect(result).toEqual({})
+      expect(result).toEqual(withBuiltInProviders({}))
       const final = yield* Ref.get(state)
       expect(final.calls).toEqual([])
     }),
@@ -169,7 +239,7 @@ describe("ModelsDev Service", () => {
             Flag.OPENCODE_DISABLE_MODELS_FETCH = true
           }),
       )
-      expect(result).toEqual(fixture2)
+      expect(result).toEqual(withBuiltInProviders(fixture2))
       expect(yield* Effect.promise(() => readFile(cacheFile, "utf8"))).toBe(JSON.stringify(fixture2))
       const final = yield* Ref.get(state)
       expect(final.calls.length).toBe(1)
@@ -189,7 +259,7 @@ describe("ModelsDev Service", () => {
           })
         }),
       )
-      for (const result of results) expect(result).toEqual(fixture)
+      for (const result of results) expect(result).toEqual(withBuiltInProviders(fixture))
     }),
   )
 
@@ -208,8 +278,8 @@ describe("ModelsDev Service", () => {
           return { a, b }
         }),
       )
-      expect(first.a).toEqual(fixture)
-      expect(first.b).toEqual(fixture)
+      expect(first.a).toEqual(withBuiltInProviders(fixture))
+      expect(first.b).toEqual(withBuiltInProviders(fixture))
     }),
   )
 
@@ -227,8 +297,8 @@ describe("ModelsDev Service", () => {
           return { before, after }
         }),
       )
-      expect(result.before).toEqual(fixture)
-      expect(result.after).toEqual(fixture2)
+      expect(result.before).toEqual(withBuiltInProviders(fixture))
+      expect(result.after).toEqual(withBuiltInProviders(fixture2))
       const final = yield* Ref.get(state)
       expect(final.calls.length).toBe(1)
       expect(final.calls[0].url).toContain("/api.json")
@@ -265,7 +335,7 @@ describe("ModelsDev Service", () => {
       )
       const final = yield* Ref.get(state)
       expect(final.calls.length).toBe(1)
-      expect(after).toEqual(fixture2)
+      expect(after).toEqual(withBuiltInProviders(fixture2))
     }),
   )
 
@@ -281,7 +351,7 @@ describe("ModelsDev Service", () => {
           return yield* svc.get()
         }),
       )
-      expect(result).toEqual(fixture)
+      expect(result).toEqual(withBuiltInProviders(fixture))
       // retryTransient retries 5xx, so calls may be > 1.
       const final = yield* Ref.get(state)
       expect(final.calls.length).toBeGreaterThanOrEqual(1)

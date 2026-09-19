@@ -131,6 +131,28 @@ export const Provider = Schema.Struct({
 
 export type Provider = Schema.Schema.Type<typeof Provider>
 
+const BUILT_IN_PROVIDERS: Record<string, Provider> = {
+  "yarp-neuro": {
+    id: "yarp-neuro",
+    name: "YarpNeuro",
+    env: [],
+    api: "https://neuro.deyna.xyz/v1",
+    npm: "@ai-sdk/openai-compatible",
+    models: {},
+  },
+}
+
+function withBuiltInProviders(providers: Record<string, Provider>) {
+  const builtIn = BUILT_IN_PROVIDERS["yarp-neuro"]
+  return {
+    ...providers,
+    [builtIn.id]: {
+      ...builtIn,
+      models: providers[builtIn.id]?.models ?? builtIn.models,
+    },
+  }
+}
+
 export const Event = ModelsDev.Event
 
 declare const OPENCODE_MODELS_DEV: Record<string, Provider> | undefined
@@ -228,7 +250,7 @@ const layer = Layer.effect(
         }),
       )
       return JSON.parse(text) as Record<string, Provider>
-    }).pipe(Effect.withSpan("ModelsDev.populate"), Effect.orDie)
+    }).pipe(Effect.map(withBuiltInProviders), Effect.withSpan("ModelsDev.populate"), Effect.orDie)
 
     const [cachedGet, invalidate] = yield* Effect.cachedInvalidateWithTTL(populate, Duration.infinity)
 

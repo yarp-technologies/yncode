@@ -31,6 +31,7 @@ import { ModelV2 } from "@opencode-ai/core/model"
 import { ModelStatus } from "./model-status"
 import { RuntimeFlags } from "@/effect/runtime-flags"
 import { ProviderError } from "./error"
+import { YarpNeuroBaseURL, YarpNeuroProviderID } from "../plugin/yarp-neuro"
 
 const OPENAI_HEADER_TIMEOUT_DEFAULT = 300_000
 
@@ -1135,7 +1136,12 @@ export function toPublicInfo(provider: Info): Info {
 }
 
 export function defaultModelIDs<T extends { models: Record<string, { id: string }> }>(providers: Record<string, T>) {
-  return mapValues(providers, (item) => sort(Object.values(item.models))[0].id)
+  return Object.fromEntries(
+    Object.entries(providers).flatMap(([id, item]) => {
+      const first = sort(Object.values(item.models))[0]
+      return first ? [[id, first.id]] : []
+    }),
+  )
 }
 
 export class ModelNotFoundError extends Schema.TaggedErrorClass<ModelNotFoundError>()("ProviderModelNotFoundError", {
@@ -1512,7 +1518,10 @@ const layer = Layer.effect(
               api: {
                 id: apiID,
                 npm: apiNpm,
-                url: model.provider?.api ?? provider?.api ?? existingModel?.api.url ?? modelsDev[providerID]?.api ?? "",
+                url:
+                  providerID === YarpNeuroProviderID
+                    ? YarpNeuroBaseURL
+                    : model.provider?.api ?? provider?.api ?? existingModel?.api.url ?? modelsDev[providerID]?.api ?? "",
               },
               status: model.status ?? existingModel?.status ?? "active",
               name,
@@ -1735,6 +1744,10 @@ const layer = Layer.effect(
       try {
         const provider = s.providers[model.providerID]
         const options = { ...provider.options }
+        if (model.providerID === YarpNeuroProviderID) {
+          delete options.baseURL
+          options.apiKey = ""
+        }
 
         if (
           model.providerID === "google-vertex" &&

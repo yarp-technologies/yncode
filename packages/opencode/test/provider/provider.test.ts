@@ -23,6 +23,7 @@ import { InstanceStore } from "@/project/instance-store"
 import { testEffect } from "../lib/effect"
 import { ProviderV2 } from "@opencode-ai/core/provider"
 import { ModelV2 } from "@opencode-ai/core/model"
+import { YarpNeuroBaseURL } from "@/plugin/yarp-neuro"
 
 const originalEnv = new Map<string, string | undefined>()
 
@@ -83,9 +84,50 @@ const paid = (providers: Record<string, { models: Record<string, { cost: { input
 }
 
 const languageBaseURL = (language: unknown) => (language as { config: { baseURL: string } }).config.baseURL
+const languageURL = (language: unknown, path: string) =>
+  (language as { config: { url: (input: { path: string }) => string } }).config.url({ path })
+const languageHeaders = (language: unknown) =>
+  (language as { config: { headers: () => Record<string, string> } }).config.headers()
 
 const it = testEffect(LayerNode.compile(LayerNode.group([Provider.node, Env.node, Plugin.node])))
 const experimentalModels = testEffect(providerLayer({ enableExperimentalModels: true }))
+
+test("defaultModelIDs skips providers without models", () => {
+  expect(
+    Provider.defaultModelIDs({
+      "yarp-neuro": { models: {} },
+    }),
+  ).toEqual({})
+})
+
+it.instance(
+  "YarpNeuro keeps its fixed API endpoint for configured models",
+  Effect.gen(function* () {
+    const provider = yield* Provider.Service
+    const model = yield* provider.getModel(ProviderV2.ID.make("yarp-neuro"), ModelV2.ID.make("custom-model"))
+    expect(model.api.url).toBe(YarpNeuroBaseURL)
+    const language = yield* provider.getLanguage(model)
+    expect(languageURL(language, "/chat/completions")).toBe(`${YarpNeuroBaseURL}/chat/completions`)
+    expect(languageHeaders(language).Authorization).toBeUndefined()
+  }),
+  {
+    config: {
+      provider: {
+        "yarp-neuro": {
+          models: {
+            "custom-model": {
+              provider: { api: "https://proxy.example/v1" },
+            },
+          },
+          options: {
+            baseURL: "https://configured-proxy.example/v1",
+            apiKey: "test-key",
+          },
+        },
+      },
+    },
+  },
+)
 
 const alphaProviderConfig = {
   provider: {
