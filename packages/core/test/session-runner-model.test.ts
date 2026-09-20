@@ -100,6 +100,32 @@ describe("SessionRunnerModel", () => {
     }),
   )
 
+  it.effect("uses x-bf-vk instead of Authorization for YarpNeuro", () =>
+    Effect.gen(function* () {
+      const resolved = yield* SessionRunnerModel.fromCatalogModel(
+        ModelV2.Info.make({
+          ...model({
+            type: "aisdk",
+            package: "@ai-sdk/openai-compatible",
+            url: "https://neuro.deyna.xyz/v1",
+          }),
+          providerID: ProviderV2.ID.make("yarp-neuro"),
+        }),
+        Credential.Key.make({ type: "key", key: "secret" }),
+      )
+      const headers = yield* resolved.route.auth.apply({
+        request: LLM.request({ model: resolved, prompt: "Hello" }),
+        method: "POST",
+        url: "https://neuro.deyna.xyz/v1/chat/completions",
+        body: "{}",
+        headers: Headers.empty,
+      })
+
+      expect(headers["x-bf-vk"]).toBe("secret")
+      expect(headers.authorization).toBeUndefined()
+    }),
+  )
+
   it.effect("overlays selected OpenAI Session variant bodies", () =>
     Effect.gen(function* () {
       const catalog = model({ type: "aisdk", package: "@ai-sdk/openai", url: "https://openai.example/v1" }, [
