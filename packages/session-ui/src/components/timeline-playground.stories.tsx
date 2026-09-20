@@ -322,6 +322,20 @@ const TOOL_SAMPLES = {
     title: "bun test --filter session",
     metadata: { command: "bun test --filter session" },
   },
+  "image generation": {
+    tool: "image_generation",
+    input: { prompt: "A cat in a witch hat" },
+    output: "Image generated",
+    title: "Image generated",
+    metadata: {},
+    attachments: [
+      {
+        mime: "image/svg+xml",
+        filename: "image.svg",
+        url: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='640' height='360' viewBox='0 0 640 360'%3E%3Crect width='640' height='360' fill='%232b2b2b'/%3E%3Ccircle cx='320' cy='190' r='92' fill='%23f0a35b'/%3E%3Cpath d='M230 130 320 24l90 106Z' fill='%235b3c88'/%3E%3Ccircle cx='286' cy='184' r='10' fill='%232b2b2b'/%3E%3Ccircle cx='354' cy='184' r='10' fill='%232b2b2b'/%3E%3Cpath d='M290 225q30 24 60 0' fill='none' stroke='%232b2b2b' stroke-width='8'/%3E%3C/svg%3E",
+      },
+    ],
+  },
   edit: {
     tool: "edit",
     input: {
@@ -561,6 +575,15 @@ function toolPart(sample: (typeof TOOL_SAMPLES)[keyof typeof TOOL_SAMPLES], stat
         title: sample.title,
         metadata: sample.metadata ?? {},
         time: { start: Date.now(), end: Date.now() + 1000 },
+        attachments: sample.attachments?.map((attachment) => ({
+          id: uid(),
+          sessionID: SESSION_ID,
+          messageID: "",
+          type: "file" as const,
+          mime: attachment.mime,
+          filename: attachment.filename,
+          url: attachment.url,
+        })),
       },
     } as ToolPart
   }

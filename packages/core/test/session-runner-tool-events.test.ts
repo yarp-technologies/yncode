@@ -96,6 +96,36 @@ test("provider-executed success retains its compatibility result", async () => {
   expect(success?.data).toHaveProperty("result")
 })
 
+test("provider image generation success publishes the image as file content", async () => {
+  const { published, publisher } = capture()
+  await Effect.runPromise(
+    publisher.publish(
+      LLMEvent.toolCall({
+        id: "call-image-generation",
+        name: "image_generation",
+        input: {},
+        providerExecuted: true,
+      }),
+    ),
+  )
+  await Effect.runPromise(
+    publisher.publish(
+      LLMEvent.toolResult({
+        id: "call-image-generation",
+        name: "image_generation",
+        result: { type: "json", value: { result: base64 } },
+        providerExecuted: true,
+      }),
+    ),
+  )
+
+  const success = published.find((event) => event.type === "session.next.tool.success.1")
+  expect(success?.data).toMatchObject({
+    content: [{ type: "file", uri: `data:image/png;base64,${base64}`, mime: "image/png", name: "image.png" }],
+    result: { type: "json", value: { result: base64 } },
+  })
+})
+
 test("binary failure emits no success event", async () => {
   const { published, publisher } = capture()
   await Effect.runPromise(publisher.publish(call))

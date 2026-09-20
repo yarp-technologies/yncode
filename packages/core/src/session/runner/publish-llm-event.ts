@@ -50,6 +50,17 @@ const settledOutput = (value: ToolOutput | undefined, result: ToolResultValue): 
   return { structured: record(settled.structured), content: settled.content }
 }
 
+const imageGenerationContent = (name: string, result: ToolResultValue, providerExecuted: boolean) => {
+  if (!providerExecuted || name !== "image_generation" || result.type !== "json") return []
+  const value = record(result.value).result
+  if (typeof value !== "string") return []
+
+  const dataUrl = /^data:([^;]+);base64,/.exec(value)
+  const mime = dataUrl?.[1] ?? "image/png"
+  const uri = dataUrl ? value : `data:${mime};base64,${value}`
+  return [{ type: "file" as const, uri, mime, name: "image.png" }]
+}
+
 /** Persist one provider turn without executing tools or starting a continuation turn. */
 export const createLLMEventPublisher = (events: EventV2.Interface, input: Input) => {
   const tools = new Map<
@@ -361,12 +372,17 @@ export const createLLMEventPublisher = (events: EventV2.Interface, input: Input)
           })
           return
         }
+        const content =
+          result.content.length > 0
+            ? result.content
+            : imageGenerationContent(event.name, event.result, provider.executed)
         yield* events.publish(SessionEvent.Tool.Success, {
           sessionID: input.sessionID,
           timestamp: yield* timestamp,
           assistantMessageID: tool.assistantMessageID,
           callID: event.id,
           ...result,
+          content,
           outputPaths,
           ...(provider.executed ? { result: event.result } : {}),
           provider,
