@@ -6,8 +6,6 @@ import { ProviderV2 } from "@opencode-ai/core/provider"
 import { ModelV2 } from "@opencode-ai/core/model"
 import { ModelsDev } from "@opencode-ai/core/models-dev"
 import type { Plugin } from "@/plugin"
-import type { Provider } from "@/provider/provider"
-import type { RuntimeFlags } from "@/effect/runtime-flags"
 import { MessageID, SessionID } from "@/session/schema"
 import { generateText, jsonSchema, type ModelMessage } from "ai"
 import { createAmazonBedrock, type AmazonBedrockLanguageModelOptions } from "@ai-sdk/amazon-bedrock"
@@ -712,10 +710,45 @@ describe("ProviderTransform.options - gpt-5 textVerbosity", () => {
         system: [],
         messages: [{ role: "user", content: "Generate an image" }],
         tools: {},
-        provider: { id: providerID, options: {} } as Provider.Info,
+        provider: {
+          id: providerID,
+          name: "YarpNeuro",
+          source: "config",
+          env: [],
+          options: {},
+          models: {},
+        },
         auth: { type: "api", key: "sk-bf-test" },
         plugin,
-        flags: { outputTokenMax: 32_000, client: "test", experimentalNativeLlm: true } as RuntimeFlags.Info,
+        flags: {
+          autoShare: false,
+          pure: false,
+          disableDefaultPlugins: false,
+          disableEmbeddedWebUi: false,
+          disableExternalSkills: false,
+          disableLspDownload: false,
+          disableClaudeCodePrompt: false,
+          disableClaudeCodeSkills: false,
+          enableExa: false,
+          enableParallel: false,
+          enableExperimentalModels: false,
+          enableQuestionTool: false,
+          experimentalReferences: false,
+          experimentalBackgroundSubagents: false,
+          experimentalLspTy: false,
+          experimentalLspTool: false,
+          experimentalOxfmt: false,
+          experimentalPlanMode: false,
+          experimentalCodeMode: false,
+          experimentalEventSystem: false,
+          experimentalWorkspaces: false,
+          experimentalIconDiscovery: false,
+          outputTokenMax: 32_000,
+          bashDefaultTimeoutMs: undefined,
+          experimentalNativeLlm: true,
+          experimentalWebSockets: false,
+          client: "test",
+        },
         isWorkflow: false,
       } satisfies Parameters<typeof LLMRequestPrep.prepare>[0]),
     )

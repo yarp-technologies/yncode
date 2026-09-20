@@ -1,12 +1,14 @@
 import { describe, expect, test } from "bun:test"
 import { LLMEvent, ToolFailure } from "@opencode-ai/llm"
 import { LLMClient, RequestExecutor, WebSocketExecutor, type LLMClientShape } from "@opencode-ai/llm/route"
+import { createOpenAI } from "@ai-sdk/openai"
 import { jsonSchema, tool, type ModelMessage, type Tool } from "ai"
 import { Effect, Fiber, Layer, Stream } from "effect"
 import { FetchHttpClient } from "effect/unstable/http"
 import { LLMNative } from "@/session/llm/native-request"
 import { LLMNativeRuntime } from "@/session/llm/native-runtime"
 import type { Provider } from "@/provider/provider"
+import { YarpNeuroBaseURL, YarpNeuroProviderID, yarpNeuroFetch } from "@/plugin/yarp-neuro"
 
 import { OAUTH_DUMMY_KEY } from "@/auth"
 import { testEffect } from "../lib/effect"
@@ -454,6 +456,84 @@ describe("session.llm-native.request", () => {
       }),
     ).toEqual({ type: "unsupported", reason: "API key is not configured" })
   })
+
+  it.effect("falls back from native YarpNeuro to Responses with Bifrost auth", () =>
+    Effect.gen(function* () {
+      const model = {
+        ...baseModel,
+        id: ModelV2.ID.make(`${YarpNeuroProviderID}/gpt-5-mini`),
+        providerID: ProviderV2.ID.make(YarpNeuroProviderID),
+        api: {
+          ...baseModel.api,
+          url: YarpNeuroBaseURL,
+        },
+      }
+      const provider = {
+        ...providerInfo,
+        id: ProviderV2.ID.make(YarpNeuroProviderID),
+        name: "YarpNeuro",
+        env: [],
+        options: {},
+      }
+
+      expect(LLMNativeRuntime.status({ model, provider, auth: { type: "api", key: "sk-bf-test" } })).toEqual({
+        type: "unsupported",
+        reason: "provider is not openai, opencode, or anthropic",
+      })
+
+      const captures: Array<{
+        readonly url: string
+        readonly authorization: string | null
+        readonly bifrostKey: string | null
+        readonly body: unknown
+      }> = []
+      const routedFetch = Object.assign(
+        async (input: Parameters<typeof fetch>[0], init: Parameters<typeof fetch>[1]) => {
+          const request = input instanceof Request ? input : new Request(input, init)
+          captures.push({
+            url: request.url,
+            authorization: request.headers.get("authorization"),
+            bifrostKey: request.headers.get("x-bf-vk"),
+            body: await request.clone().json(),
+          })
+          return Response.json({
+            id: "resp_test",
+            created_at: 0,
+            model: "gpt-5-mini",
+            output: [],
+            usage: { input_tokens: 1, output_tokens: 0 },
+          })
+        },
+        { preconnect: () => undefined },
+      ) satisfies typeof fetch
+      const fetchWithBifrostAuth = Object.assign(
+        yarpNeuroFetch(async () => ({ type: "api" as const, key: "sk-bf-test" }), routedFetch),
+        { preconnect: () => undefined },
+      ) satisfies typeof fetch
+      const language = createOpenAI({
+        apiKey: "unused",
+        baseURL: YarpNeuroBaseURL,
+        fetch: fetchWithBifrostAuth,
+      }).responses("gpt-5-mini")
+
+      yield* Effect.promise(() =>
+        language.doGenerate({
+          prompt: [{ role: "user", content: [{ type: "text", text: "Generate an image" }] }],
+          tools: [{ type: "provider", id: "openai.image_generation", name: "image_generation", args: {} }],
+        }),
+      )
+
+      expect(captures).toHaveLength(1)
+      expect(captures[0]).toMatchObject({
+        url: `${YarpNeuroBaseURL}/responses`,
+        authorization: null,
+        bifrostKey: "sk-bf-test",
+        body: {
+          tools: [{ type: "image_generation" }],
+        },
+      })
+    }),
+  )
 
   test("enables native runtime for Anthropic API-key models", () => {
     expect(
