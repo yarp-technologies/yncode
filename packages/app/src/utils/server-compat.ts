@@ -1,6 +1,13 @@
 import type { ServerApi } from "./server"
 import type { ServerProtocol } from "./server-protocol"
-import type { AgentPartInput, FilePartInput, OpencodeClient, Session, TextPartInput } from "@opencode-ai/sdk/v2/client"
+import type {
+  AgentPartInput,
+  FilePartInput,
+  OpencodeClient,
+  Session,
+  SessionInputAdmitted,
+  TextPartInput,
+} from "@opencode-ai/sdk/v2/client"
 import type {
   Project,
   ProjectCurrent,
@@ -45,10 +52,13 @@ type LegacyPrompt = {
   variant?: string
   legacyParts?: (TextPartInput | FilePartInput | AgentPartInput)[]
 }
+type CurrentPromptInput = Parameters<OpencodeClient["v2"]["session"]["prompt"]>[0]
+type CurrentPrompt = (input: CurrentPromptInput) => Promise<SessionInputAdmitted>
 type LegacyLocation = { directory?: string }
 type CompatibleInput = {
   protocol: Promise<ServerProtocol>
   current: ServerApi
+  currentPrompt?: CurrentPrompt
   legacy: LegacyFor
   directory?: string
 }
@@ -56,6 +66,33 @@ type CompatibleInput = {
 function mime(uri: string) {
   const match = /^data:([^;,]+)/.exec(uri)
   return match?.[1] ?? "application/octet-stream"
+}
+
+function promptData(uri: string) {
+  const match = /^data:[^;,]+;base64,(.*)$/.exec(uri)
+  return match?.[1] ?? uri
+}
+
+function sessionPromptOutput(input: SessionInputAdmitted): SessionPromptOutput {
+  return {
+    admittedSeq: input.admittedSeq,
+    id: input.id,
+    sessionID: input.sessionID,
+    timeCreated: input.timeCreated,
+    type: "user",
+    data: {
+      text: input.prompt.text,
+      files: input.prompt.files?.map((file) => ({
+        data: promptData(file.uri),
+        mime: file.mime,
+        source: file.uri.startsWith("data:") ? { type: "inline" as const } : { type: "uri" as const, uri: file.uri },
+        name: file.name,
+        description: file.description,
+      })),
+      agents: input.prompt.agents?.map((agent) => ({ name: agent.name, mention: agent.source })),
+    },
+    delivery: input.delivery,
+  }
 }
 
 function sessionInfo(session: Session): SessionInfo {
@@ -85,9 +122,48 @@ function sessionInfo(session: Session): SessionInfo {
 
 export function createCompatibleApi(input: CompatibleInput): CompatibleApi {
   const v1 = createV1Api(input)
+  const currentPrompt = input.currentPrompt
+  const current = currentPrompt
+    ? {
+        ...input.current,
+        session: {
+          ...input.current.session,
+          async prompt(value: SessionPromptInput & LegacyPrompt) {
+            const result = await currentPrompt({
+              sessionID: value.sessionID,
+              ...(value.id !== undefined && value.id !== null ? { id: value.id } : {}),
+              prompt: {
+                text: value.text,
+                ...(value.files
+                  ? {
+                      files: value.files.map((file) => ({
+                        uri: file.uri,
+                        ...(file.name !== undefined ? { name: file.name } : {}),
+                        ...(file.description !== undefined ? { description: file.description } : {}),
+                        ...(file.mention ? { source: file.mention } : {}),
+                      })),
+                    }
+                  : {}),
+                ...(value.agents
+                  ? {
+                      agents: value.agents.map((agent) => ({
+                        name: agent.name,
+                        ...(agent.mention ? { source: agent.mention } : {}),
+                      })),
+                    }
+                  : {}),
+              },
+              ...(value.delivery !== undefined && value.delivery !== null ? { delivery: value.delivery } : {}),
+              ...(value.resume !== undefined && value.resume !== null ? { resume: value.resume } : {}),
+            })
+            return sessionPromptOutput(result)
+          },
+        },
+      }
+    : input.current
   return lazyApi(
-    input.protocol.then((protocol) => (protocol === "v1" ? v1 : input.current)),
-    input.current,
+    input.protocol.then((protocol) => (protocol === "v1" ? v1 : current)),
+    current,
   )
 }
 
