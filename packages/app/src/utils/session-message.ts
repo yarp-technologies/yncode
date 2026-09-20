@@ -45,6 +45,20 @@ function normalizeToolMetadata(name: string, metadata: Record<string, unknown>) 
   }
 }
 
+type ToolAttachment = {
+  uri: string
+  mime: string
+  name?: string
+}
+
+function toolAttachments(state: unknown): ToolAttachment[] {
+  if (!record(state) || !Array.isArray(state.attachments)) return []
+  return state.attachments.flatMap((item): ToolAttachment[] => {
+    if (!record(item) || typeof item.uri !== "string" || typeof item.mime !== "string") return []
+    return [{ uri: item.uri, mime: item.mime, name: typeof item.name === "string" ? item.name : undefined }]
+  })
+}
+
 export function normalizeSessionMessages(sessionID: string, source: readonly SessionMessageInfo[]) {
   const messages: Message[] = []
   const parts = new Map<string, Part[]>()
@@ -327,21 +341,35 @@ function toolPart(sessionID: string, messageID: string, tool: SessionMessageAssi
         time: { start, end: tool.time.completed ?? start },
       }
     }
-    const attachments = tool.state.content.flatMap((item, index): FilePart[] =>
-      item.type === "file"
-        ? [
-            {
-              id: `${tool.id}:file:${index}`,
-              sessionID,
-              messageID,
-              type: "file",
-              mime: item.mime,
-              filename: item.name,
-              url: item.uri,
-            },
-          ]
-        : [],
-    )
+    const directAttachments = toolAttachments(tool.state)
+    const attachments = [
+      ...directAttachments.map(
+        (item, index): FilePart => ({
+          id: `${tool.id}:file:${index}`,
+          sessionID,
+          messageID,
+          type: "file",
+          mime: item.mime,
+          filename: item.name,
+          url: item.uri,
+        }),
+      ),
+      ...tool.state.content.flatMap((item, index): FilePart[] =>
+        item.type === "file" && !directAttachments.some((attachment) => attachment.uri === item.uri)
+          ? [
+              {
+                id: `${tool.id}:file:${index + directAttachments.length}`,
+                sessionID,
+                messageID,
+                type: "file",
+                mime: item.mime,
+                filename: item.name,
+                url: item.uri,
+              },
+            ]
+          : [],
+      ),
+    ]
     return {
       status: "completed" as const,
       input: normalizeToolInput(tool.name, tool.state.input),

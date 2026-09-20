@@ -63,7 +63,7 @@ import { ToolStatusTitle } from "./tool-status-title"
 import { patchFiles } from "./apply-patch-file"
 import { partDefaultOpen } from "./part-default-open"
 import { animate } from "motion"
-import { attached, inline, kind, typeLabel } from "./message-file"
+import { attached, imageAttachments, inline, kind, typeLabel } from "./message-file"
 import { readPartText } from "./message-part-text"
 import { SessionProgressIndicatorV2 } from "../v2/components/session-progress-indicator-v2"
 
@@ -1533,6 +1533,7 @@ function ToolFileAccordion(props: { path: string; actions?: JSX.Element; childre
 
 PART_MAPPING["tool"] = function ToolPartDisplay(props) {
   const data = useData()
+  const dialog = useDialog()
   const i18n = useI18n()
   const part = () => props.part as ToolPart
   if (part().tool === "todowrite") return null
@@ -1564,8 +1565,13 @@ PART_MAPPING["tool"] = function ToolPartDisplay(props) {
   })
 
   const render = createMemo(() => ToolRegistry.render(part().tool) ?? GenericTool)
+  const images = createMemo(() => imageAttachments(part()))
   const controlledOpen = () => (props.onToolOpenChange ? (props.toolOpen ?? props.defaultOpen) : undefined)
   const handleToolOpenChange = (open: boolean) => props.onToolOpenChange?.(open)
+  const openImagePreview = (file: FilePart) => {
+    const name = file.filename ?? i18n.t("ui.message.attachment.alt")
+    dialog.show(() => <ImagePreview src={file.url} alt={name} />)
+  }
 
   return (
     <Show when={!hideQuestion()}>
@@ -1627,6 +1633,26 @@ PART_MAPPING["tool"] = function ToolPartDisplay(props) {
             />
           </Match>
         </Switch>
+        <Show when={images().length > 0}>
+          <div data-slot="tool-image-attachments">
+            <For each={images()}>
+              {(file) => {
+                const name = file.filename ?? i18n.t("ui.message.attachment.alt")
+                return (
+                  <button
+                    type="button"
+                    data-slot="tool-image-attachment"
+                    title={name}
+                    aria-label={name}
+                    onClick={() => openImagePreview(file)}
+                  >
+                    <img data-slot="tool-image-attachment-image" src={file.url} alt={name} />
+                  </button>
+                )
+              }}
+            </For>
+          </div>
+        </Show>
       </div>
     </Show>
   )
