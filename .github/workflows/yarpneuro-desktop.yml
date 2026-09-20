@@ -80,7 +80,7 @@ jobs:
           gh release create "$release_tag" "${files[@]}" "$metadata" "$checksums" \
             --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \
-            --title "OpenCode Desktop YarpNeuro $release_tag" \
+            --title "YarpNeuro Desktop $release_tag" \
             --notes "Linux x64 desktop build from $GITHUB_SHA with YarpNeuro as the only built-in provider."
 
   windows-x64:

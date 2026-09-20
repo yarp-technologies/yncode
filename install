@@ -46,7 +46,7 @@ NC='\033[0m' # No Color
 
 usage() {
     cat <<EOF
-OpenCode Installer
+YarpNeuro Installer
 
 Usage: install.sh [options]
 
@@ -316,7 +316,7 @@ install_default_skills() {
                     mv "$staging" "$target"
                 done
             ' opencode-skills-bundle >>"$log_file" 2>&1 </dev/null &
-        print_message info "Default skills installation started in background from the OpenCode distribution. Log: $log_file"
+        print_message info "Default skills installation started in background from the YarpNeuro distribution. Log: $log_file"
         return 0
     fi
 
@@ -560,7 +560,7 @@ echo -e "${MUTED}█░░█ █░░█ █▀▀▀ █░░█ ${NC}█░
 echo -e "${MUTED}▀▀▀▀ █▀▀▀ ▀▀▀▀ ▀  ▀ ${NC}▀▀▀▀ ▀▀▀▀ ▀▀▀▀ ▀▀▀▀"
 echo -e ""
 echo -e ""
-echo -e "${MUTED}OpenCode includes free models, to start:${NC}"
+echo -e "${MUTED}YarpNeuro includes free models, to start:${NC}"
 echo -e ""
 echo -e "cd <project>  ${MUTED}# Open directory${NC}"
 echo -e "opencode      ${MUTED}# Run command${NC}"

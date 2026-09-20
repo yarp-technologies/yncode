@@ -91,7 +91,7 @@ const getBase = (appId: string): Configuration => ({
     sign: true,
   },
   protocols: {
-    name: "OpenCode",
+    name: "YarpNeuro",
     schemes: ["opencode"],
   },
   win: {
@@ -132,7 +132,7 @@ function getConfig() {
       return {
         ...base,
         appId,
-        productName: "OpenCode Dev",
+        productName: "YarpNeuro Dev",
         deb: { fpm: [metainfoFpm(appId)] },
         rpm: { packageName: "opencode-dev", fpm: [metainfoFpm(appId)] },
       }
@@ -141,8 +141,8 @@ function getConfig() {
       return {
         ...base,
         appId,
-        productName: "OpenCode Beta",
-        protocols: { name: "OpenCode Beta", schemes: ["opencode"] },
+        productName: "YarpNeuro Beta",
+        protocols: { name: "YarpNeuro Beta", schemes: ["opencode"] },
         publish: { provider: "github", owner: updateOwner, repo: updateRepository, channel: updateChannel },
         deb: { fpm: [metainfoFpm(appId)] },
         rpm: { packageName: "opencode-beta", fpm: [metainfoFpm(appId)] },
@@ -152,8 +152,8 @@ function getConfig() {
       return {
         ...base,
         appId,
-        productName: "OpenCode",
-        protocols: { name: "OpenCode", schemes: ["opencode"] },
+        productName: "YarpNeuro",
+        protocols: { name: "YarpNeuro", schemes: ["opencode"] },
         publish: { provider: "github", owner: updateOwner, repo: updateRepository, channel: updateChannel },
         deb: { fpm: [metainfoFpm(appId), legacyDesktopEntryFpm] },
         rpm: { packageName: "opencode", fpm: [metainfoFpm(appId), legacyDesktopEntryFpm] },
