@@ -26,13 +26,14 @@ function setup(
         return new Response(undefined, { status: 204 })
       if (request.method === "POST" && request.url.endsWith("/prompt")) {
         return Response.json({
-          admittedSeq: 1,
-          id: "msg_1",
-          sessionID: "ses_1",
-          timeCreated: 1,
-          type: "user",
-          data: { text: "hello" },
-          delivery: "steer",
+          data: {
+            admittedSeq: 1,
+            id: "msg_1",
+            sessionID: "ses_1",
+            prompt: { text: "hello" },
+            timeCreated: 1,
+            delivery: "steer",
+          },
         })
       }
       if (request.method === "GET" && new URL(request.url).pathname === "/vcs")
@@ -43,11 +44,13 @@ function setup(
     { preconnect: globalThis.fetch.preconnect },
   )
   const server = { url: "http://localhost:4096" }
+  const currentSdk = createSdkForServer({ server, fetch: fetcher, throwOnError: true })
   const api = createCompatibleApi({
     protocol: typeof protocol === "string" ? Promise.resolve(protocol) : protocol,
     current: createApiForServer({ server, fetch: fetcher }),
     legacy: (directory) => createSdkForServer({ server, fetch: fetcher, directory, throwOnError: true }),
     directory: "/repo",
+    currentPrompt: async (input) => (await currentSdk.v2.session.prompt(input, { throwOnError: true })).data.data,
   })
   return { api, requests }
 }
@@ -127,6 +130,27 @@ describe("createCompatibleApi", () => {
       { id: "prt_text", type: "text", text: "look" },
       { id: "prt_image", type: "file", mime: "image/png", url: "data:image/png;base64,AAAA", filename: "image.png" },
     ])
+  })
+
+  test("sends current prompts with nested image attachments", async () => {
+    const { api, requests } = setup("v2")
+
+    await api.session.prompt({
+      sessionID: "ses_1",
+      id: "msg_1",
+      text: "look",
+      files: [{ uri: "data:image/png;base64,AAAA", name: "image.png" }],
+    })
+
+    const request = requests.find((item) => new URL(item.url).pathname === "/api/session/ses_1/prompt")
+    expect(request).toBeDefined()
+    expect(await request!.json()).toEqual({
+      id: "msg_1",
+      prompt: {
+        text: "look",
+        files: [{ uri: "data:image/png;base64,AAAA", name: "image.png" }],
+      },
+    })
   })
 
   test("resolves protocol detection once across implementation methods", async () => {
