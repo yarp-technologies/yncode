@@ -31,7 +31,7 @@ import { ModelV2 } from "@opencode-ai/core/model"
 import { ModelStatus } from "./model-status"
 import { RuntimeFlags } from "@/effect/runtime-flags"
 import { ProviderError } from "./error"
-import { YarpNeuroBaseURL, YarpNeuroProviderID } from "../plugin/yarp-neuro"
+import { YarpNeuroApiNpm, YarpNeuroBaseURL, YarpNeuroProviderID } from "../plugin/yarp-neuro"
 
 const OPENAI_HEADER_TIMEOUT_DEFAULT = 300_000
 
@@ -213,6 +213,14 @@ function custom(dep: CustomDep): Record<string, CustomLoader> {
           return sdk.responses(modelID)
         },
         options: { headerTimeout: OPENAI_HEADER_TIMEOUT_DEFAULT },
+      }),
+    "yarp-neuro": () =>
+      Effect.succeed({
+        autoload: false,
+        async getModel(sdk: BundledSDK, modelID: string) {
+          if (!sdk.responses) throw new Error("YarpNeuro requires a Responses-capable OpenAI SDK")
+          return sdk.responses(modelID)
+        },
       }),
     meta: () =>
       Effect.succeed({
@@ -1502,14 +1510,16 @@ const layer = Layer.effect(
             const existingModel = parsed.models[model.id ?? modelID]
             const apiID = model.id ?? existingModel?.api.id ?? modelID
             const apiNpm =
-              model.provider?.npm ??
-              provider.npm ??
-              existingModel?.api.npm ??
-              // Config-defined gateway models bypass fromModelsDevModel, so resolve the
-              // native passthrough npm here before falling back to the catalog default.
-              cloudflareGatewayNpm(providerID, apiID) ??
-              modelsDev[providerID]?.npm ??
-              "@ai-sdk/openai-compatible"
+              providerID === YarpNeuroProviderID
+                ? YarpNeuroApiNpm
+                : model.provider?.npm ??
+                  provider.npm ??
+                  existingModel?.api.npm ??
+                  // Config-defined gateway models bypass fromModelsDevModel, so resolve the
+                  // native passthrough npm here before falling back to the catalog default.
+                  cloudflareGatewayNpm(providerID, apiID) ??
+                  modelsDev[providerID]?.npm ??
+                  "@ai-sdk/openai-compatible"
             const name = iife(() => {
               if (model.name) return model.name
               if (model.id && model.id !== modelID) return modelID

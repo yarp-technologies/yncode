@@ -5,6 +5,10 @@ import { LLMRequestPrep } from "@/session/llm/request"
 import { ProviderV2 } from "@opencode-ai/core/provider"
 import { ModelV2 } from "@opencode-ai/core/model"
 import { ModelsDev } from "@opencode-ai/core/models-dev"
+import type { Plugin } from "@/plugin"
+import type { Provider } from "@/provider/provider"
+import type { RuntimeFlags } from "@/effect/runtime-flags"
+import { MessageID, SessionID } from "@/session/schema"
 import { generateText, jsonSchema, type ModelMessage } from "ai"
 import { createAmazonBedrock, type AmazonBedrockLanguageModelOptions } from "@ai-sdk/amazon-bedrock"
 import { createAnthropic } from "@ai-sdk/anthropic"
@@ -666,6 +670,60 @@ describe("ProviderTransform.options - gpt-5 textVerbosity", () => {
     )
 
     expect(result.tools.image_generation).toBeUndefined()
+  })
+
+  test("adds hosted image generation to YarpNeuro Responses requests", async () => {
+    const requestSessionID = SessionID.make("ses_test-session")
+    const requestMessageID = MessageID.make("msg_user-test")
+    const providerID = ProviderV2.ID.make("yarp-neuro")
+    const modelID = ModelV2.ID.make("gpt-5.5")
+    const plugin: Plugin.Interface = {
+      trigger: (_name, _input, output) => Effect.succeed(output),
+      list: () => Effect.succeed([]),
+      init: () => Effect.void,
+    }
+    const result = await Effect.runPromise(
+      LLMRequestPrep.prepare({
+        user: {
+          id: requestMessageID,
+          sessionID: requestSessionID,
+          role: "user",
+          time: { created: Date.now() },
+          agent: "test",
+          model: { providerID, modelID },
+        },
+        sessionID: requestSessionID,
+        model: {
+          ...createGpt5Model("gpt-5.5"),
+          id: ModelV2.ID.make("yarp-neuro/gpt-5.5"),
+          providerID,
+          api: {
+            id: "gpt-5.5",
+            url: "https://neuro.deyna.xyz/v1",
+            npm: "@ai-sdk/openai",
+          },
+        },
+        agent: {
+          name: "test",
+          mode: "primary",
+          options: {},
+          permission: [],
+        },
+        system: [],
+        messages: [{ role: "user", content: "Generate an image" }],
+        tools: {},
+        provider: { id: providerID, options: {} } as Provider.Info,
+        auth: { type: "api", key: "sk-bf-test" },
+        plugin,
+        flags: { outputTokenMax: 32_000, client: "test", experimentalNativeLlm: true } as RuntimeFlags.Info,
+        isWorkflow: false,
+      } satisfies Parameters<typeof LLMRequestPrep.prepare>[0]),
+    )
+
+    expect(result.tools.image_generation).toMatchObject({
+      type: "provider",
+      id: "openai.image_generation",
+    })
   })
 
   test("gpt-5.1 should have textVerbosity set to low", () => {

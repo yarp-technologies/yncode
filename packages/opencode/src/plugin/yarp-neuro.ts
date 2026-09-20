@@ -4,6 +4,7 @@ import { Schema } from "effect"
 
 export const YarpNeuroProviderID = "yarp-neuro"
 export const YarpNeuroBaseURL = "https://neuro.deyna.xyz/v1"
+export const YarpNeuroApiNpm = "@ai-sdk/openai"
 const DEFAULT_ORIGIN = new URL(YarpNeuroBaseURL).origin
 const API_KEY_HEADER = "x-bf-vk"
 const MODEL_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:/-]{0,255}$/
@@ -84,7 +85,7 @@ async function getModels(apiKey: string, existing: Record<string, Model>, reques
         api: {
           id: item.id,
           url: YarpNeuroBaseURL,
-          npm: template?.api.npm ?? "@ai-sdk/openai-compatible",
+          npm: YarpNeuroApiNpm,
         },
         status: template?.status ?? "active",
         headers: { ...template?.headers },

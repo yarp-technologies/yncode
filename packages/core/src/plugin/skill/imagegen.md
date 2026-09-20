@@ -2,7 +2,9 @@
 
 Use the provider-hosted `image_generation` tool when the user asks for a new
 raster image or wants to edit an existing image. This tool is available for
-OpenAI Codex OAuth Responses models and does not require an API key.
+OpenAI Codex OAuth Responses models and YarpNeuro Responses models routed
+through Bifrost and CLIProxyAPI. The Codex OAuth path does not require an API
+key; YarpNeuro uses its configured Bifrost virtual key.
 
 ## When to use it
 

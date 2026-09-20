@@ -55,6 +55,8 @@ const mergeOptions = (target: Record<string, any>, source: Record<string, any> |
 
 export const prepare = Effect.fn("LLMRequestPrep.prepare")(function* (input: PrepareInput) {
   const isOpenaiOauth = input.provider.id === "openai" && input.auth?.type === "oauth"
+  const isYarpNeuroApi =
+    input.provider.id === "yarp-neuro" && input.model.providerID === "yarp-neuro" && input.auth?.type === "api"
   const system = [
     [
       ...(input.agent.prompt ? [input.agent.prompt] : SystemPrompt.provider(input.model)),
@@ -157,10 +159,9 @@ export const prepare = Effect.fn("LLMRequestPrep.prepare")(function* (input: Pre
     for (const key of Object.keys(tools)) tools[key] = { ...tools[key], strict: false }
   }
   if (
-    isOpenaiOauth &&
-    input.model.providerID === "openai" &&
     input.model.api.npm === "@ai-sdk/openai" &&
-    !input.flags.experimentalNativeLlm &&
+    ((isOpenaiOauth && input.model.providerID === "openai") || isYarpNeuroApi) &&
+    (!input.flags.experimentalNativeLlm || isYarpNeuroApi) &&
     input.user.tools?.image_generation !== false &&
     !Permission.disabled(["image_generation"], Permission.merge(input.agent.permission, input.permission ?? [])).has(
       "image_generation",

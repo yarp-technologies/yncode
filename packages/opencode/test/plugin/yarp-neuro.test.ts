@@ -51,7 +51,7 @@ test("discovers YarpNeuro models with the x-bf-vk header", async () => {
     api: {
       id: "vendor/exact-model",
       url: "https://neuro.deyna.xyz/v1",
-      npm: "@ai-sdk/openai-compatible",
+      npm: "@ai-sdk/openai",
     },
   })
 })
@@ -112,7 +112,7 @@ test("routes YarpNeuro model requests through x-bf-vk at runtime", async () => {
       return fetch(`${server.url}${url.pathname}`, init)
     },
   )
-  const request = new Request("https://neuro.deyna.xyz/v1/chat/completions", {
+  const request = new Request("https://neuro.deyna.xyz/v1/responses", {
     headers: {
       Authorization: "Bearer should-not-be-sent",
     },
