@@ -1,6 +1,7 @@
 const model_id = "claude-3-7-sonnet"
 
 export const popularProviders = [
+  "yarp-neuro",
   "opencode",
   "opencode-go",
   "anthropic",
@@ -25,6 +26,7 @@ const provider = {
 }
 
 const popular = [
+  { id: "yarp-neuro", name: "YarpNeuro", models: {} },
   { id: "opencode", name: "OpenCode Zen", models: {} },
   { id: "opencode-go", name: "OpenCode Go", models: {} },
   { id: "openai", name: "OpenAI", models: {} },

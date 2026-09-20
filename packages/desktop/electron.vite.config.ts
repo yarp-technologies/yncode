@@ -11,6 +11,8 @@ const channel = (() => {
   if (process.env.OPENCODE_CHANNEL === "latest") return "prod"
   return "dev"
 })()
+const updateChannel = process.env.OPENCODE_UPDATE_CHANNEL || "latest"
+const allowPrerelease = process.env.OPENCODE_ALLOW_PRERELEASE === "true" ? "true" : "false"
 
 const nodePtyPkg = `@lydell/node-pty-${process.platform}-${process.arch}`
 
@@ -35,6 +37,8 @@ export default defineConfig({
   main: {
     define: {
       "import.meta.env.OPENCODE_CHANNEL": JSON.stringify(channel),
+      "import.meta.env.OPENCODE_UPDATE_CHANNEL": JSON.stringify(updateChannel),
+      "import.meta.env.OPENCODE_ALLOW_PRERELEASE": JSON.stringify(allowPrerelease),
     },
     build: {
       rollupOptions: {

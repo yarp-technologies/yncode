@@ -35,6 +35,11 @@ const channel = (() => {
   return "dev"
 })()
 
+const updateOwner = process.env.OPENCODE_UPDATE_OWNER ?? "anomalyco"
+const updateRepository =
+  process.env.OPENCODE_UPDATE_REPOSITORY ?? (channel === "beta" ? "opencode-beta" : "opencode")
+const updateChannel = process.env.OPENCODE_UPDATE_CHANNEL ?? "latest"
+
 const APP_IDS = {
   dev: "ai.opencode.desktop.dev",
   beta: "ai.opencode.desktop.beta",
@@ -138,7 +143,7 @@ function getConfig() {
         appId,
         productName: "OpenCode Beta",
         protocols: { name: "OpenCode Beta", schemes: ["opencode"] },
-        publish: { provider: "github", owner: "anomalyco", repo: "opencode-beta", channel: "latest" },
+        publish: { provider: "github", owner: updateOwner, repo: updateRepository, channel: updateChannel },
         deb: { fpm: [metainfoFpm(appId)] },
         rpm: { packageName: "opencode-beta", fpm: [metainfoFpm(appId)] },
       }
@@ -149,7 +154,7 @@ function getConfig() {
         appId,
         productName: "OpenCode",
         protocols: { name: "OpenCode", schemes: ["opencode"] },
-        publish: { provider: "github", owner: "anomalyco", repo: "opencode", channel: "latest" },
+        publish: { provider: "github", owner: updateOwner, repo: updateRepository, channel: updateChannel },
         deb: { fpm: [metainfoFpm(appId), legacyDesktopEntryFpm] },
         rpm: { packageName: "opencode", fpm: [metainfoFpm(appId), legacyDesktopEntryFpm] },
       }

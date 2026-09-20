@@ -27,18 +27,35 @@ jobs:
       - name: Install Linux packaging tools
         run: sudo apt-get update && sudo apt-get install --yes --no-install-recommends rpm
 
+      - name: Prepare desktop release version
+        working-directory: packages/desktop
+        shell: bash
+        env:
+          OPENCODE_CHANNEL: prod
+          OPENCODE_VERSION: ${{ inputs.tag || github.ref_name }}
+        run: |
+          OPENCODE_VERSION="${OPENCODE_VERSION#v}" bun ./scripts/prepare.ts
+
       - name: Build desktop
         working-directory: packages/desktop
         run: bun run build
         env:
           NODE_OPTIONS: --max-old-space-size=4096
           OPENCODE_CHANNEL: prod
+          OPENCODE_UPDATE_OWNER: yarp-technologies
+          OPENCODE_UPDATE_REPOSITORY: yncode
+          OPENCODE_UPDATE_CHANNEL: yarp
+          OPENCODE_ALLOW_PRERELEASE: "true"
 
       - name: Package desktop
         working-directory: packages/desktop
         run: bun run package:linux -- --publish never
         env:
           OPENCODE_CHANNEL: prod
+          OPENCODE_UPDATE_OWNER: yarp-technologies
+          OPENCODE_UPDATE_REPOSITORY: yncode
+          OPENCODE_UPDATE_CHANNEL: yarp
+          OPENCODE_ALLOW_PRERELEASE: "true"
 
       - name: Publish GitHub release
         env:
@@ -51,10 +68,16 @@ jobs:
             printf '%s\n' packages/desktop/dist/*
             exit 1
           fi
+          metadata=packages/desktop/dist/yarp-linux.yml
+          if [[ ! -f "$metadata" ]]; then
+            echo "Expected yarp-linux.yml update metadata"
+            printf '%s\n' packages/desktop/dist/*
+            exit 1
+          fi
           checksums=packages/desktop/dist/SHA256SUMS
           sha256sum "${files[@]}" > "$checksums"
           release_tag="${{ inputs.tag || github.ref_name }}"
-          gh release create "$release_tag" "${files[@]}" "$checksums" \
+          gh release create "$release_tag" "${files[@]}" "$metadata" "$checksums" \
             --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \
             --prerelease \
@@ -73,18 +96,38 @@ jobs:
         with:
           install-bun-version: "1.4.0"
 
+      - name: Prepare desktop release version
+        working-directory: packages/desktop
+        shell: pwsh
+        env:
+          OPENCODE_CHANNEL: prod
+          OPENCODE_VERSION: ${{ inputs.tag || github.ref_name }}
+        run: |
+          if ($env:OPENCODE_VERSION.StartsWith("v")) {
+            $env:OPENCODE_VERSION = $env:OPENCODE_VERSION.Substring(1)
+          }
+          bun ./scripts/prepare.ts
+
       - name: Build desktop
         working-directory: packages/desktop
         run: bun run build
         env:
           NODE_OPTIONS: --max-old-space-size=4096
           OPENCODE_CHANNEL: prod
+          OPENCODE_UPDATE_OWNER: yarp-technologies
+          OPENCODE_UPDATE_REPOSITORY: yncode
+          OPENCODE_UPDATE_CHANNEL: yarp
+          OPENCODE_ALLOW_PRERELEASE: "true"
 
       - name: Package desktop
         working-directory: packages/desktop
         run: bun run package:win -- --publish never
         env:
           OPENCODE_CHANNEL: prod
+          OPENCODE_UPDATE_OWNER: yarp-technologies
+          OPENCODE_UPDATE_REPOSITORY: yncode
+          OPENCODE_UPDATE_CHANNEL: yarp
+          OPENCODE_ALLOW_PRERELEASE: "true"
 
       - name: Publish Windows release asset
         shell: pwsh
@@ -97,8 +140,14 @@ jobs:
             Get-ChildItem -LiteralPath packages/desktop/dist
             exit 1
           }
+          $metadata = @(Get-ChildItem -LiteralPath packages/desktop/dist -Filter yarp.yml -File)
+          if ($metadata.Count -ne 1) {
+            Write-Output "Expected yarp.yml update metadata; found $($metadata.Count)"
+            Get-ChildItem -LiteralPath packages/desktop/dist
+            exit 1
+          }
           $checksum = Join-Path $files[0].DirectoryName SHA256SUMS-windows-x64
           $hash = (Get-FileHash -Algorithm SHA256 -LiteralPath $files[0].FullName).Hash.ToLower()
           "$hash  $($files[0].Name)" | Set-Content -NoNewline -Path $checksum
           $releaseTag = "${{ inputs.tag || github.ref_name }}"
-          gh release upload $releaseTag $files[0].FullName $checksum --repo $env:GITHUB_REPOSITORY --clobber
+          gh release upload $releaseTag $files[0].FullName $metadata[0].FullName $checksum --repo $env:GITHUB_REPOSITORY --clobber
