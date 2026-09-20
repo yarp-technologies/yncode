@@ -2,6 +2,43 @@
 set -euo pipefail
 APP=opencode
 
+ANTHROPIC_SKILLS=(
+    algorithmic-art
+    brand-guidelines
+    canvas-design
+    doc-coauthoring
+    docx
+    frontend-design
+    internal-comms
+    mcp-builder
+    pdf
+    pptx
+    skill-creator
+    template-skill
+    web-artifacts-builder
+    webapp-testing
+    xlsx
+)
+
+SUPERPOWERS_SKILLS=(
+    brainstorming
+    dispatching-parallel-agents
+    executing-plans
+    finishing-a-development-branch
+    receiving-code-review
+    requesting-code-review
+    subagent-driven-development
+    systematic-debugging
+    test-driven-development
+    using-git-worktrees
+    using-superpowers
+    verification-before-completion
+    writing-plans
+    writing-skills
+)
+
+DEFAULT_SKILLS=("${ANTHROPIC_SKILLS[@]}" "${SUPERPOWERS_SKILLS[@]}")
+
 MUTED='\033[0;2m'
 RED='\033[0;31m'
 ORANGE='\033[38;5;214m'
@@ -218,6 +255,77 @@ print_message() {
     echo -e "${color}${message}${NC}"
 }
 
+install_default_skills() {
+    local bundle_dir=${1:-}
+    local bundle_parent=${2:-}
+    local log_dir="${XDG_CACHE_HOME:-$HOME/.cache}/opencode"
+    local log_file="$log_dir/skills-install.log"
+    local skill_runner=""
+
+    mkdir -p "$log_dir"
+
+    if command -v skills >/dev/null 2>&1; then
+        skill_runner=$(command -v skills)
+    elif command -v npx >/dev/null 2>&1; then
+        skill_runner="$(command -v npx) --yes skills"
+    fi
+
+    if [ -n "$skill_runner" ]; then
+        local anthropic_names="${ANTHROPIC_SKILLS[*]}"
+        local superpowers_names="${SUPERPOWERS_SKILLS[*]}"
+        SKILL_RUNNER="$skill_runner" \
+            ANTHROPIC_NAMES="$anthropic_names" \
+            SUPERPOWERS_NAMES="$superpowers_names" \
+            nohup sh -c '
+                set -eu
+                $SKILL_RUNNER add anthropics/skills --global --yes --agent "*" --skill $ANTHROPIC_NAMES
+                $SKILL_RUNNER add obra/superpowers --global --yes --agent "*" --skill $SUPERPOWERS_NAMES
+            ' opencode-skills-install >>"$log_file" 2>&1 </dev/null &
+        if [ -n "$bundle_parent" ]; then
+            rm -rf "$bundle_parent"
+        fi
+        print_message info "Default skills installation started in background. Log: $log_file"
+        return 0
+    fi
+
+    if [ -n "$bundle_dir" ] && [ -d "$bundle_dir" ]; then
+        local target_dir="$HOME/.agents/skills"
+        local skill_names="${DEFAULT_SKILLS[*]}"
+        BUNDLE_DIR="$bundle_dir" \
+            TARGET_DIR="$target_dir" \
+            SKILL_NAMES="$skill_names" \
+            BUNDLE_PARENT="$bundle_parent" \
+            nohup sh -c '
+                set -eu
+                trap '\''if [ -n "${BUNDLE_PARENT:-}" ]; then rm -rf "$BUNDLE_PARENT"; fi'\'' EXIT
+                mkdir -p "$TARGET_DIR"
+                for skill in $SKILL_NAMES; do
+                    source="$BUNDLE_DIR/$skill"
+                    target="$TARGET_DIR/$skill"
+                    if [ -e "$target" ]; then
+                        printf "skill already installed, skipping: %s\\n" "$skill"
+                        continue
+                    fi
+                    if [ ! -d "$source" ]; then
+                        printf "bundled skill is missing: %s\\n" "$skill" >&2
+                        exit 1
+                    fi
+                    staging="$TARGET_DIR/.$skill.tmp.$$"
+                    rm -rf "$staging"
+                    cp -R "$source" "$staging"
+                    mv "$staging" "$target"
+                done
+            ' opencode-skills-bundle >>"$log_file" 2>&1 </dev/null &
+        print_message info "Default skills installation started in background from the OpenCode distribution. Log: $log_file"
+        return 0
+    fi
+
+    if [ -n "$bundle_parent" ]; then
+        rm -rf "$bundle_parent"
+    fi
+    print_message warning "Skipping default skills: no skills CLI or bundled skill payload was found."
+}
+
 check_version() {
     if command -v opencode >/dev/null 2>&1; then
         opencode_path=$(which opencode)
@@ -229,6 +337,7 @@ check_version() {
             print_message info "${MUTED}Installed version: ${NC}$installed_version."
         else
             print_message info "${MUTED}Version ${NC}$specific_version${MUTED} already installed"
+            install_default_skills "$INSTALL_DIR/skills"
             exit 0
         fi
     fi
@@ -342,13 +451,14 @@ download_and_install() {
 
     mv "$tmp_dir/opencode" "$INSTALL_DIR"
     chmod 755 "${INSTALL_DIR}/opencode"
-    rm -rf "$tmp_dir"
+    install_default_skills "$tmp_dir/skills" "$tmp_dir"
 }
 
 install_from_binary() {
     print_message info "\n${MUTED}Installing ${NC}opencode ${MUTED}from: ${NC}$binary_path"
     cp "$binary_path" "${INSTALL_DIR}/opencode"
     chmod 755 "${INSTALL_DIR}/opencode"
+    install_default_skills "$(dirname "$binary_path")/skills"
 }
 
 if [ -n "$binary_path" ]; then

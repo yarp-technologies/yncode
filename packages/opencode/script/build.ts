@@ -49,6 +49,7 @@ const createEmbeddedWebUIBundle = async () => {
 
 const embeddedFileMap = skipEmbedWebUi ? null : await createEmbeddedWebUIBundle()
 const treeSitterWorker = await Bun.file(fileURLToPath(import.meta.resolve("@opentui/core/parser.worker"))).text()
+const bundledSkills = path.join(dir, "skills")
 
 const allTargets: {
   os: string
@@ -215,6 +216,7 @@ for (const item of targets) {
   }
 
   await $`rm -rf ./dist/${name}/bin/tui`
+  await $`cp -R ${bundledSkills} dist/${name}/bin/skills`
   await Bun.file(`dist/${name}/package.json`).write(
     JSON.stringify(
       {
