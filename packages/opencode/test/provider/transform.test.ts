@@ -5,6 +5,8 @@ import { LLMRequestPrep } from "@/session/llm/request"
 import { ProviderV2 } from "@opencode-ai/core/provider"
 import { ModelV2 } from "@opencode-ai/core/model"
 import { ModelsDev } from "@opencode-ai/core/models-dev"
+import type { Plugin } from "@/plugin"
+import { MessageID, SessionID } from "@/session/schema"
 import { generateText, jsonSchema, type ModelMessage } from "ai"
 import { createAmazonBedrock, type AmazonBedrockLanguageModelOptions } from "@ai-sdk/amazon-bedrock"
 import { createAnthropic } from "@ai-sdk/anthropic"
@@ -588,6 +590,173 @@ describe("ProviderTransform.options - gpt-5 textVerbosity", () => {
     expect(result.params.options.reasoningSummary).toBeUndefined()
     expect(result.params.options.include).toBeUndefined()
     expect(result.tools.lookup.strict).toBe(false)
+  })
+
+  test("adds the hosted image generation tool to OpenAI OAuth Responses requests", async () => {
+    const result = await Effect.runPromise(
+      LLMRequestPrep.prepare({
+        user: {
+          id: "msg_user-test",
+          sessionID,
+          role: "user",
+          time: { created: Date.now() },
+          agent: "test",
+          model: { providerID: "openai", modelID: "gpt-5.5" },
+        },
+        sessionID,
+        model: createGpt5Model("gpt-5.5"),
+        agent: {
+          name: "test",
+          mode: "primary",
+          options: {},
+          permission: [],
+        },
+        system: [],
+        messages: [{ role: "user", content: "Generate an image" }],
+        tools: {},
+        provider: { id: "openai", options: {} },
+        auth: { type: "oauth", access: "access", refresh: "refresh", expires: Date.now() + 60_000 },
+        plugin: {
+          trigger: (_name: string, _input: unknown, output: unknown) => Effect.succeed(output),
+          list: () => Effect.succeed([]),
+          init: () => Effect.void,
+        },
+        flags: { outputTokenMax: 32_000, client: "test", experimentalNativeLlm: false },
+        isWorkflow: false,
+      } as unknown as Parameters<typeof LLMRequestPrep.prepare>[0]),
+    )
+
+    expect(result.tools.image_generation).toMatchObject({
+      type: "provider",
+      id: "openai.image_generation",
+    })
+    expect(result.tools.image_generation.strict).toBeUndefined()
+  })
+
+  test("does not add hosted image generation to API-key OpenAI requests", async () => {
+    const result = await Effect.runPromise(
+      LLMRequestPrep.prepare({
+        user: {
+          id: "msg_user-test",
+          sessionID,
+          role: "user",
+          time: { created: Date.now() },
+          agent: "test",
+          model: { providerID: "openai", modelID: "gpt-5.5" },
+        },
+        sessionID,
+        model: createGpt5Model("gpt-5.5"),
+        agent: {
+          name: "test",
+          mode: "primary",
+          options: {},
+          permission: [],
+        },
+        system: [],
+        messages: [{ role: "user", content: "Generate an image" }],
+        tools: {},
+        provider: { id: "openai", options: {} },
+        auth: undefined,
+        plugin: {
+          trigger: (_name: string, _input: unknown, output: unknown) => Effect.succeed(output),
+          list: () => Effect.succeed([]),
+          init: () => Effect.void,
+        },
+        flags: { outputTokenMax: 32_000, client: "test", experimentalNativeLlm: false },
+        isWorkflow: false,
+      } as unknown as Parameters<typeof LLMRequestPrep.prepare>[0]),
+    )
+
+    expect(result.tools.image_generation).toBeUndefined()
+  })
+
+  test("adds hosted image generation to YarpNeuro Responses requests", async () => {
+    const requestSessionID = SessionID.make("ses_test-session")
+    const requestMessageID = MessageID.make("msg_user-test")
+    const providerID = ProviderV2.ID.make("yarp-neuro")
+    const modelID = ModelV2.ID.make("gpt-5.5")
+    const plugin: Plugin.Interface = {
+      trigger: (_name, _input, output) => Effect.succeed(output),
+      list: () => Effect.succeed([]),
+      init: () => Effect.void,
+    }
+    const result = await Effect.runPromise(
+      LLMRequestPrep.prepare({
+        user: {
+          id: requestMessageID,
+          sessionID: requestSessionID,
+          role: "user",
+          time: { created: Date.now() },
+          agent: "test",
+          model: { providerID, modelID },
+        },
+        sessionID: requestSessionID,
+        model: {
+          ...createGpt5Model("gpt-5.5"),
+          id: ModelV2.ID.make("yarp-neuro/gpt-5.5"),
+          providerID,
+          api: {
+            id: "gpt-5.5",
+            url: "https://neuro.deyna.xyz/v1",
+            npm: "@ai-sdk/openai",
+          },
+        },
+        agent: {
+          name: "test",
+          mode: "primary",
+          options: {},
+          permission: [],
+        },
+        system: [],
+        messages: [{ role: "user", content: "Generate an image" }],
+        tools: {},
+        provider: {
+          id: providerID,
+          name: "YarpNeuro",
+          source: "config",
+          env: [],
+          options: {},
+          models: {},
+        },
+        auth: { type: "api", key: "sk-bf-test" },
+        plugin,
+        flags: {
+          autoShare: false,
+          pure: false,
+          disableDefaultPlugins: false,
+          disableEmbeddedWebUi: false,
+          disableExternalSkills: false,
+          disableLspDownload: false,
+          disableClaudeCodePrompt: false,
+          disableClaudeCodeSkills: false,
+          enableExa: false,
+          enableParallel: false,
+          enableExperimentalModels: false,
+          enableQuestionTool: false,
+          experimentalReferences: false,
+          experimentalBackgroundSubagents: false,
+          experimentalLspTy: false,
+          experimentalLspTool: false,
+          experimentalOxfmt: false,
+          experimentalPlanMode: false,
+          experimentalCodeMode: false,
+          experimentalEventSystem: false,
+          experimentalWorkspaces: false,
+          experimentalIconDiscovery: false,
+          outputTokenMax: 32_000,
+          bashDefaultTimeoutMs: undefined,
+          experimentalNativeLlm: true,
+          experimentalWebSockets: false,
+          client: "test",
+        },
+        isWorkflow: false,
+      } satisfies Parameters<typeof LLMRequestPrep.prepare>[0]),
+    )
+
+    expect(result.tools.image_generation).toMatchObject({
+      type: "provider",
+      id: "openai.image_generation",
+    })
   })
 
   test("gpt-5.1 should have textVerbosity set to low", () => {

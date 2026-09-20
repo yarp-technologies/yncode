@@ -33,6 +33,10 @@ const CUSTOMIZE_OPENCODE_SKILL_NAME = "customize-opencode"
 const CUSTOMIZE_OPENCODE_SKILL_DESCRIPTION =
   "Use ONLY when the user is editing or creating opencode's own configuration: opencode.json, opencode.jsonc, files under .opencode/, or files under ~/.config/opencode/. Also use when creating or fixing opencode agents, subagents, skills, plugins, MCP servers, or permission rules. Do not use for the user's own application code, or for any project that is not configuring opencode itself."
 const CUSTOMIZE_OPENCODE_SKILL_BODY = SkillPlugin.CustomizeOpencodeContent
+const IMAGEGEN_SKILL_NAME = "imagegen"
+const IMAGEGEN_SKILL_DESCRIPTION =
+  "Generate or edit raster images when the task benefits from AI-created bitmap visuals such as photos, illustrations, textures, sprites, mockups, or transparent-background cutouts. Use when Codex should create a brand-new image, transform an existing image, or derive visual variants from references, and the output should be a bitmap asset rather than repo-native code or vector. Do not use when the task is better handled by editing existing SVG/vector/code-native assets, extending an established icon or logo system, or building the visual directly in HTML/CSS/canvas."
+const IMAGEGEN_SKILL_BODY = SkillPlugin.ImagegenContent
 
 export const Info = Schema.Struct({
   name: Schema.String,
@@ -280,6 +284,12 @@ const layer = Layer.effect(
           description: CUSTOMIZE_OPENCODE_SKILL_DESCRIPTION,
           location: "<built-in>",
           content: CUSTOMIZE_OPENCODE_SKILL_BODY,
+        }
+        s.skills[IMAGEGEN_SKILL_NAME] = {
+          name: IMAGEGEN_SKILL_NAME,
+          description: IMAGEGEN_SKILL_DESCRIPTION,
+          location: "<built-in>",
+          content: IMAGEGEN_SKILL_BODY,
         }
         yield* loadSkills(s, yield* InstanceState.get(discovered), events)
         return s

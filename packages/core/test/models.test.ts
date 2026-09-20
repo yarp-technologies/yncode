@@ -130,7 +130,7 @@ const builtInYarpNeuro: ModelsDev.Provider = {
   name: "YarpNeuro",
   env: [],
   api: "https://neuro.deyna.xyz/v1",
-  npm: "@ai-sdk/openai-compatible",
+  npm: "@ai-sdk/openai",
   models: {},
 }
 
@@ -157,7 +157,7 @@ describe("ModelsDev Service", () => {
         name: "YarpNeuro",
         env: [],
         api: "https://neuro.deyna.xyz/v1",
-        npm: "@ai-sdk/openai-compatible",
+        npm: "@ai-sdk/openai",
         models: {},
       })
     }),

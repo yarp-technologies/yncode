@@ -137,7 +137,7 @@ const BUILT_IN_PROVIDERS: Record<string, Provider> = {
     name: "YarpNeuro",
     env: [],
     api: "https://neuro.deyna.xyz/v1",
-    npm: "@ai-sdk/openai-compatible",
+    npm: "@ai-sdk/openai",
     models: {},
   },
 }

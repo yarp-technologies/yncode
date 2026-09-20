@@ -6,7 +6,7 @@ import { SessionV1 } from "@opencode-ai/core/v1/session"
 import { serviceUse } from "@opencode-ai/core/effect/service-use"
 import { Context, Effect, Layer } from "effect"
 import * as Stream from "effect/Stream"
-import { streamText, wrapLanguageModel, type ModelMessage, type Tool } from "ai"
+import { streamText, wrapLanguageModel, type ModelMessage, type ToolSet } from "ai"
 import type { LLMEvent } from "@opencode-ai/llm"
 import { LLMClient } from "@opencode-ai/llm/route"
 import type { LLMClientService } from "@opencode-ai/llm/route"
@@ -42,7 +42,7 @@ export type StreamInput = {
   system: string[]
   messages: ModelMessage[]
   small?: boolean
-  tools: Record<string, Tool>
+  tools: ToolSet
   retries?: number
   toolChoice?: "auto" | "required" | "none"
 }

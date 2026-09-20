@@ -106,14 +106,16 @@ it.instance(
     const provider = yield* Provider.Service
     const model = yield* provider.getModel(ProviderV2.ID.make("yarp-neuro"), ModelV2.ID.make("custom-model"))
     expect(model.api.url).toBe(YarpNeuroBaseURL)
+    expect(model.api.npm).toBe("@ai-sdk/openai")
     const language = yield* provider.getLanguage(model)
-    expect(languageURL(language, "/chat/completions")).toBe(`${YarpNeuroBaseURL}/chat/completions`)
+    expect(languageURL(language, "/responses")).toBe(`${YarpNeuroBaseURL}/responses`)
     expect(languageHeaders(language).Authorization).toBeUndefined()
   }),
   {
     config: {
       provider: {
         "yarp-neuro": {
+          npm: "@ai-sdk/openai-compatible",
           models: {
             "custom-model": {
               provider: { api: "https://proxy.example/v1" },
