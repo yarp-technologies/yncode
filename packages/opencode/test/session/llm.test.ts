@@ -1,5 +1,6 @@
 import { PermissionV1 } from "@opencode-ai/core/v1/permission"
 import { ConfigV1 } from "@opencode-ai/core/v1/config/config"
+import type { Hooks } from "@opencode-ai/plugin"
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test"
 import { SessionV1 } from "@opencode-ai/core/v1/session"
 import path from "path"
@@ -10,6 +11,8 @@ import { HttpClientRequest, HttpClientResponse } from "effect/unstable/http"
 import z from "zod"
 import { LLM } from "../../src/session/llm"
 import { LLMClient, RequestExecutor } from "@opencode-ai/llm/route"
+import { Auth } from "@/auth"
+import { Plugin } from "@/plugin"
 import { Provider } from "@/provider/provider"
 import { ProviderTransform } from "@/provider/transform"
 import { ModelsDev } from "@opencode-ai/core/models-dev"
@@ -28,6 +31,7 @@ import { AppNodeBuilder } from "@opencode-ai/core/effect/app-node-builder"
 import { LayerNode } from "@opencode-ai/core/effect/layer-node"
 import { LayerNodePlatform } from "@opencode-ai/core/effect/app-node-platform"
 import { ProviderError } from "@/provider/error"
+import { YarpNeuroProviderID, yarpNeuroFetch } from "@/plugin/yarp-neuro"
 
 type ConfigModel = NonNullable<NonNullable<ConfigV1.Info["provider"]>[string]["models"]>[string]
 
@@ -1542,6 +1546,138 @@ describe("session.llm.stream", () => {
         expect(capture.body.input).toContainEqual({ role: "user", content: [{ type: "input_text", text: "Hello" }] })
       }),
     { config: () => openAIConfig(loadFixture("openai", "gpt-5.2").model, `${state.server!.url.origin}/v1`) },
+  )
+
+  it.instance(
+    "falls back from native YarpNeuro through the LLM service",
+    () =>
+      Effect.gen(function* () {
+        const model = yield* Provider.use.getModel(
+          ProviderV2.ID.make(YarpNeuroProviderID),
+          ModelV2.ID.make("gpt-5.5"),
+        )
+        const request = waitRequest(
+          "/responses",
+          createEventResponse(
+            [
+              {
+                type: "response.created",
+                response: { id: "resp-yarp-fallback", created_at: Math.floor(Date.now() / 1000), model: model.id },
+              },
+              {
+                type: "response.output_item.added",
+                output_index: 0,
+                item: { type: "message", id: "item-yarp-fallback", status: "in_progress", role: "assistant", content: [] },
+              },
+              {
+                type: "response.content_part.added",
+                item_id: "item-yarp-fallback",
+                output_index: 0,
+                content_index: 0,
+                part: { type: "output_text", text: "Done", annotations: [] },
+              },
+              {
+                type: "response.output_text.delta",
+                item_id: "item-yarp-fallback",
+                delta: "Done",
+                logprobs: null,
+              },
+              {
+                type: "response.completed",
+                response: {
+                  incomplete_details: null,
+                  usage: {
+                    input_tokens: 1,
+                    input_tokens_details: null,
+                    output_tokens: 1,
+                    output_tokens_details: null,
+                  },
+                  service_tier: null,
+                },
+              },
+            ],
+            true,
+          ),
+        )
+        const auth = Layer.mock(Auth.Service)({
+          get: (providerID) =>
+            Effect.succeed(providerID === YarpNeuroProviderID ? { type: "api", key: "sk-bf-test" } : undefined),
+          all: () => Effect.succeed({ [YarpNeuroProviderID]: { type: "api", key: "sk-bf-test" } }),
+        })
+        const hooks: Hooks = {
+          auth: {
+            provider: YarpNeuroProviderID,
+            loader: async (getAuth) => ({
+              apiKey: "",
+              fetch: Object.assign(
+                yarpNeuroFetch(async () => getAuth(), async (input, init) => {
+                  const request = input instanceof Request ? input : new Request(input, init)
+                  const server = state.server
+                  if (!server) throw new Error("test server is not running")
+                  const url = new URL(request.url)
+                  url.protocol = server.url.protocol
+                  url.host = server.url.host
+                  return fetch(url, request)
+                }),
+                { preconnect: () => undefined },
+              ),
+            }),
+            methods: [{ type: "api", label: "API key" }],
+          },
+        }
+        const plugin: Plugin.Interface = {
+          trigger: (_name, _input, output) => Effect.succeed(output),
+          list: () => Effect.succeed([hooks]),
+          init: () => Effect.void,
+        }
+        const layer = AppNodeBuilder.build(LayerNode.group([Provider.node, LLM.node]), [
+          [Auth.node, auth],
+          [Plugin.node, Layer.succeed(Plugin.Service, Plugin.Service.of(plugin))],
+          [RuntimeFlags.node, RuntimeFlags.layer({ experimentalNativeLlm: true })],
+        ])
+        const sessionID = SessionID.make("session-test-yarp-fallback")
+        const agent = {
+          name: "test",
+          mode: "primary",
+          options: {},
+          permission: [{ permission: "*", pattern: "*", action: "allow" }],
+        } satisfies Agent.Info
+
+        yield* drainWith(layer, {
+          user: {
+            id: MessageID.make("msg_user-yarp-fallback"),
+            sessionID,
+            role: "user",
+            time: { created: Date.now() },
+            agent: agent.name,
+            model: { providerID: ProviderV2.ID.make(YarpNeuroProviderID), modelID: model.id },
+          } satisfies SessionV1.User,
+          sessionID,
+          model,
+          agent,
+          system: ["You are a helpful assistant."],
+          messages: [{ role: "user", content: "Generate an image" }],
+          tools: {},
+        })
+
+        const capture = yield* Effect.promise(() => request)
+        expect(capture.url.pathname).toBe("/v1/responses")
+        expect(capture.headers.get("Authorization")).toBeNull()
+        expect(capture.headers.get("x-bf-vk")).toBe("sk-bf-test")
+        expect(capture.body.tools).toContainEqual(expect.objectContaining({ type: "image_generation" }))
+      }),
+    {
+      config: {
+        enabled_providers: [YarpNeuroProviderID],
+        provider: {
+          [YarpNeuroProviderID]: {
+            models: {
+              "gpt-5.5": {},
+            },
+          },
+        },
+      },
+    },
   )
 
   it.instance(
