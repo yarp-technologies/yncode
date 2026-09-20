@@ -26,6 +26,7 @@ import { ProviderV2 } from "@opencode-ai/core/provider"
 import { ModelV2 } from "@opencode-ai/core/model"
 import { SessionProjector } from "@opencode-ai/core/session/projector"
 import { LLMEvent } from "@opencode-ai/llm"
+import { ProviderTest } from "../fake/provider"
 
 const summary = Layer.succeed(
   SessionSummary.Service,
@@ -208,6 +209,41 @@ const providerErrorLLM = Layer.succeed(
 )
 const providerErrorEnv = LayerNode.compile(root, [...replacements, [LLM.node, providerErrorLLM]])
 const itProviderError = testEffect(providerErrorEnv)
+
+const generatedImage =
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
+const imageGenerationLLM = Layer.succeed(
+  LLM.Service,
+  LLM.Service.of({
+    stream: () =>
+      Stream.make(
+        LLMEvent.stepStart({ index: 0 }),
+        LLMEvent.toolInputStart({ id: "image-call", name: "image_generation" }),
+        LLMEvent.toolInputEnd({ id: "image-call", name: "image_generation" }),
+        LLMEvent.toolCall({
+          id: "image-call",
+          name: "image_generation",
+          input: {},
+          providerExecuted: true,
+        }),
+        LLMEvent.toolResult({
+          id: "image-call",
+          name: "image_generation",
+          result: { type: "json", value: { result: generatedImage } },
+          providerExecuted: true,
+        }),
+        LLMEvent.stepFinish({ index: 0, reason: "stop" }),
+        LLMEvent.finish({ reason: "stop" }),
+      ),
+  }),
+)
+const imageModel = ProviderTest.model({ id: ref.modelID, providerID: ref.providerID })
+const imageProvider = ProviderTest.fake({ model: imageModel })
+const imageGenerationEnv = LayerNode.compile(
+  LayerNode.group([root, LayerNode.make({ service: TestLLMServer, layer: TestLLMServer.layer, deps: [] })]),
+  [...replacements, [Provider.node, imageProvider.layer], [LLM.node, imageGenerationLLM]],
+)
+const itImageGeneration = testEffect(imageGenerationEnv)
 
 const fragmentFailureLLM = Layer.succeed(
   LLM.Service,
@@ -865,6 +901,59 @@ it.live("session.processor effect tests complete AI SDK tool calls when native f
         expect(call.state.metadata).toEqual({ source: "test" })
         expect(call.state.time.start).toBeDefined()
         expect(call.state.time.end).toBeDefined()
+      }),
+    { config: (url) => providerCfg(url) },
+  ),
+)
+
+itImageGeneration.live("session.processor stores provider image results as file attachments", () =>
+  provideTmpdirServer(
+    ({ dir }) =>
+      Effect.gen(function* () {
+        const { processors, session, provider } = yield* boot()
+
+        const chat = yield* session.create({})
+        const parent = yield* user(chat.id, "image")
+        const msg = yield* assistant(chat.id, parent.id, path.resolve(dir))
+        const mdl = yield* provider.getModel(ref.providerID, ref.modelID)
+        const handle = yield* processors.create({
+          assistantMessage: msg,
+          sessionID: chat.id,
+          model: mdl,
+        })
+
+        const value = yield* handle.process({
+          user: {
+            id: parent.id,
+            sessionID: chat.id,
+            role: "user",
+            time: parent.time,
+            agent: parent.agent,
+            model: { providerID: ref.providerID, modelID: ref.modelID },
+          } satisfies SessionV1.User,
+          sessionID: chat.id,
+          model: mdl,
+          agent: agent(),
+          system: [],
+          messages: [{ role: "user", content: "image" }],
+          tools: {},
+        })
+
+        const parts = yield* MessageV2.parts(msg.id)
+        const call = parts.find((part): part is SessionV1.ToolPart => part.type === "tool")
+
+        expect(value).toBe("continue")
+        expect(call?.state.status).toBe("completed")
+        if (call?.state.status !== "completed") return
+        expect(call.state.output).toBe("Image generated")
+        expect(call.state.attachments).toEqual([
+          expect.objectContaining({
+            type: "file",
+            mime: "image/png",
+            filename: "image.png",
+            url: `data:image/png;base64,${generatedImage}`,
+          }),
+        ])
       }),
     { config: (url) => providerCfg(url) },
   ),

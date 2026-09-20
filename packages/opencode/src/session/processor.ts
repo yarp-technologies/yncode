@@ -257,6 +257,32 @@ const layer = Layer.effect(
       const toolResultOutput = (
         value: Extract<StreamEvent, { type: "tool-result" }>,
       ): { title: string; metadata: Record<string, any>; output: string; attachments?: SessionV1.FilePart[] } => {
+        if (
+          value.name === "image_generation" &&
+          isRecord(value.result.value) &&
+          typeof value.result.value.result === "string"
+        ) {
+          const result = value.result.value.result
+          const dataUrl = /^data:([^;]+);base64,/.exec(result)
+          const mime = dataUrl?.[1] ?? "image/png"
+          const url = dataUrl ? result : `data:${mime};base64,${result}`
+          return {
+            title: value.name,
+            metadata: {},
+            output: "Image generated",
+            attachments: [
+              {
+                id: PartID.ascending(),
+                sessionID: ctx.sessionID,
+                messageID: ctx.assistantMessage.id,
+                type: "file",
+                mime,
+                url,
+                filename: "image.png",
+              },
+            ],
+          }
+        }
         if (isRecord(value.result.value) && typeof value.result.value.output === "string") {
           return {
             title: typeof value.result.value.title === "string" ? value.result.value.title : value.name,

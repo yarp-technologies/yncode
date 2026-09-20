@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
-import type { FilePart } from "@opencode-ai/sdk/v2"
-import { attached, inline, kind, typeLabel } from "./message-file"
+import type { FilePart, ToolPart } from "@opencode-ai/sdk/v2"
+import { attached, imageAttachments, inline, kind, typeLabel } from "./message-file"
 
 function file(part: Partial<FilePart> = {}): FilePart {
   return {
@@ -16,6 +16,30 @@ function file(part: Partial<FilePart> = {}): FilePart {
 }
 
 describe("message-file", () => {
+  test("selects only image attachments from completed tool parts", () => {
+    const image = file({ mime: "image/png", url: "data:image/png;base64,AA==", filename: "image.png" })
+    const document = file({ mime: "application/pdf", url: "data:application/pdf;base64,AA==", filename: "file.pdf" })
+    const part: ToolPart = {
+      id: "tool_1",
+      sessionID: "ses_1",
+      messageID: "msg_1",
+      type: "tool",
+      callID: "call_1",
+      tool: "image_generation",
+      state: {
+        status: "completed",
+        input: {},
+        output: "Image generated",
+        title: "image_generation",
+        metadata: {},
+        time: { start: 1, end: 2 },
+        attachments: [image, document],
+      },
+    }
+
+    expect(imageAttachments(part)).toEqual([image])
+  })
+
   test("treats data URLs as attachments", () => {
     expect(attached(file({ url: "data:text/plain;base64,SGVsbG8=" }))).toBe(true)
     expect(attached(file())).toBe(false)

@@ -3,6 +3,56 @@ import type { SessionMessageInfo } from "@opencode-ai/client/promise"
 import { normalizeSessionMessages } from "./session-message"
 
 describe("normalizeSessionMessages", () => {
+  test("projects provider tool attachments into file parts", () => {
+    const uri = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAAB"
+    const content: [{ type: "text"; text: string }] = [{ type: "text", text: "Image generated" }]
+    const imageState = Object.assign(
+      {
+        status: "completed" as const,
+        input: {},
+        content,
+      },
+      { attachments: [{ uri, mime: "image/png", name: "image.png" }] },
+    )
+    const source = [
+      { id: "msg_user", type: "user", text: "draw", time: { created: 1 } },
+      {
+        id: "msg_assistant",
+        type: "assistant",
+        agent: "build",
+        model: { id: "model", providerID: "provider" },
+        content: [
+          {
+            type: "tool",
+            id: "call_image",
+            name: "image_generation",
+            state: imageState,
+            time: { created: 2, ran: 3, completed: 4 },
+          },
+        ],
+        time: { created: 2, completed: 4 },
+      },
+    ] satisfies SessionMessageInfo[]
+
+    const result = normalizeSessionMessages("ses_1", source)
+    expect(result.parts.get("msg_assistant")).toEqual([
+      expect.objectContaining({
+        type: "tool",
+        tool: "image_generation",
+        state: expect.objectContaining({
+          attachments: [
+            expect.objectContaining({
+              type: "file",
+              mime: "image/png",
+              filename: "image.png",
+              url: uri,
+            }),
+          ],
+        }),
+      }),
+    ])
+  })
+
   test("projects current turns into stable legacy rendering records", () => {
     const source = [
       { id: "msg_1", type: "agent-switched", agent: "build", time: { created: 1 } },
