@@ -64,6 +64,24 @@ const withHome = <A, E, R>(home: string, self: Effect.Effect<A, E, R>) =>
   )
 
 describe("skill", () => {
+  it.live("registers the built-in imagegen skill", () =>
+    provideTmpdirInstance(() =>
+      Effect.gen(function* () {
+        const skill = yield* Skill.Service
+        const imagegen = yield* skill.get("imagegen")
+
+        expect(imagegen).toEqual(
+          expect.objectContaining({
+            name: "imagegen",
+            description: expect.stringContaining("AI-created bitmap visuals"),
+            location: "<built-in>",
+            content: expect.stringContaining("image_generation"),
+          }),
+        )
+      }),
+    ),
+  )
+
   it.effect("formats verbose locations as XML-safe filesystem paths", () =>
     Effect.sync(() => {
       const output = Skill.fmt(

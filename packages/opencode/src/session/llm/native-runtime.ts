@@ -3,7 +3,7 @@ import type { Provider } from "@/provider/provider"
 import { ProviderTransform } from "@/provider/transform"
 import { errorMessage } from "@/util/error"
 import { isRecord } from "@/util/record"
-import { asSchema, type ModelMessage, type Tool } from "ai"
+import { asSchema, type ModelMessage, type ToolSet } from "ai"
 import { Cause, Effect, FiberSet, Queue } from "effect"
 import * as Stream from "effect/Stream"
 import { FetchHttpClient } from "effect/unstable/http"
@@ -32,7 +32,7 @@ type StreamInput = {
   readonly auth: Auth.Info | undefined
   readonly llmClient: LLMClientShape
   readonly messages: ModelMessage[]
-  readonly tools: Record<string, Tool>
+  readonly tools: ToolSet
   readonly toolChoice?: "auto" | "required" | "none"
   readonly temperature?: number
   readonly topP?: number
@@ -166,7 +166,7 @@ function nativeSchema(value: unknown): JsonSchema {
   return asSchema(value as Parameters<typeof asSchema>[0]).jsonSchema as JsonSchema
 }
 
-export function nativeTools(tools: Record<string, Tool>, input: Pick<StreamInput, "messages" | "abort">) {
+export function nativeTools(tools: ToolSet, input: Pick<StreamInput, "messages" | "abort">) {
   return Object.fromEntries(
     Object.entries(tools).map(([name, item]) => [
       name,

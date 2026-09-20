@@ -590,6 +590,84 @@ describe("ProviderTransform.options - gpt-5 textVerbosity", () => {
     expect(result.tools.lookup.strict).toBe(false)
   })
 
+  test("adds the hosted image generation tool to OpenAI OAuth Responses requests", async () => {
+    const result = await Effect.runPromise(
+      LLMRequestPrep.prepare({
+        user: {
+          id: "msg_user-test",
+          sessionID,
+          role: "user",
+          time: { created: Date.now() },
+          agent: "test",
+          model: { providerID: "openai", modelID: "gpt-5.5" },
+        },
+        sessionID,
+        model: createGpt5Model("gpt-5.5"),
+        agent: {
+          name: "test",
+          mode: "primary",
+          options: {},
+          permission: [],
+        },
+        system: [],
+        messages: [{ role: "user", content: "Generate an image" }],
+        tools: {},
+        provider: { id: "openai", options: {} },
+        auth: { type: "oauth", access: "access", refresh: "refresh", expires: Date.now() + 60_000 },
+        plugin: {
+          trigger: (_name: string, _input: unknown, output: unknown) => Effect.succeed(output),
+          list: () => Effect.succeed([]),
+          init: () => Effect.void,
+        },
+        flags: { outputTokenMax: 32_000, client: "test", experimentalNativeLlm: false },
+        isWorkflow: false,
+      } as unknown as Parameters<typeof LLMRequestPrep.prepare>[0]),
+    )
+
+    expect(result.tools.image_generation).toMatchObject({
+      type: "provider",
+      id: "openai.image_generation",
+    })
+    expect(result.tools.image_generation.strict).toBeUndefined()
+  })
+
+  test("does not add hosted image generation to API-key OpenAI requests", async () => {
+    const result = await Effect.runPromise(
+      LLMRequestPrep.prepare({
+        user: {
+          id: "msg_user-test",
+          sessionID,
+          role: "user",
+          time: { created: Date.now() },
+          agent: "test",
+          model: { providerID: "openai", modelID: "gpt-5.5" },
+        },
+        sessionID,
+        model: createGpt5Model("gpt-5.5"),
+        agent: {
+          name: "test",
+          mode: "primary",
+          options: {},
+          permission: [],
+        },
+        system: [],
+        messages: [{ role: "user", content: "Generate an image" }],
+        tools: {},
+        provider: { id: "openai", options: {} },
+        auth: undefined,
+        plugin: {
+          trigger: (_name: string, _input: unknown, output: unknown) => Effect.succeed(output),
+          list: () => Effect.succeed([]),
+          init: () => Effect.void,
+        },
+        flags: { outputTokenMax: 32_000, client: "test", experimentalNativeLlm: false },
+        isWorkflow: false,
+      } as unknown as Parameters<typeof LLMRequestPrep.prepare>[0]),
+    )
+
+    expect(result.tools.image_generation).toBeUndefined()
+  })
+
   test("gpt-5.1 should have textVerbosity set to low", () => {
     const model = createGpt5Model("gpt-5.1")
     const result = ProviderTransform.options({ model, sessionID, providerOptions: {} })

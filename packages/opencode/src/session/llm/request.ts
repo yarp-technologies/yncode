@@ -11,7 +11,7 @@ import { ProviderTransform } from "@/provider/transform"
 import { SystemPrompt } from "../system"
 import { InstallationVersion } from "@opencode-ai/core/installation/version"
 import { Effect, Record } from "effect"
-import { jsonSchema, tool as aiTool, type ModelMessage, type Tool } from "ai"
+import { jsonSchema, tool as aiTool, type ModelMessage, type ToolSet } from "ai"
 import type { Plugin } from "@/plugin"
 import { mergeDeep } from "remeda"
 
@@ -27,7 +27,7 @@ type PrepareInput = {
   readonly system: string[]
   readonly messages: ModelMessage[]
   readonly small?: boolean
-  readonly tools: Record<string, Tool>
+  readonly tools: ToolSet
   readonly provider: Provider.Info
   readonly auth: Auth.Info | undefined
   readonly plugin: Plugin.Interface
@@ -38,7 +38,7 @@ type PrepareInput = {
 export type Prepared = {
   readonly system: string[]
   readonly messages: ModelMessage[]
-  readonly tools: Record<string, Tool>
+  readonly tools: ToolSet
   readonly params: {
     readonly temperature?: number
     readonly topP?: number
@@ -155,6 +155,23 @@ export const prepare = Effect.fn("LLMRequestPrep.prepare")(function* (input: Pre
     input.model.api.npm === "@ai-sdk/amazon-bedrock/mantle"
   ) {
     for (const key of Object.keys(tools)) tools[key] = { ...tools[key], strict: false }
+  }
+  if (
+    isOpenaiOauth &&
+    input.model.providerID === "openai" &&
+    input.model.api.npm === "@ai-sdk/openai" &&
+    !input.flags.experimentalNativeLlm &&
+    input.user.tools?.image_generation !== false &&
+    !Permission.disabled(["image_generation"], Permission.merge(input.agent.permission, input.permission ?? [])).has(
+      "image_generation",
+    )
+  ) {
+    tools.image_generation = {
+      type: "provider",
+      id: "openai.image_generation",
+      args: {},
+      inputSchema: jsonSchema({ type: "object", properties: {} }),
+    }
   }
   if (
     input.model.providerID.includes("github-copilot") &&
