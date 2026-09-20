@@ -541,7 +541,8 @@ export function createServerSyncContextInner(serverSDK: ServerSDK) {
       homeSessions.apply(event)
     }
     homeSessions.refresh(event.type)
-    if (eventType === "integration.connection.updated") void refreshProviders()
+    if (eventType === "integration.connection.updated" || (eventType === "catalog.updated" && directory !== "global"))
+      void refreshProviders()
 
     if (directory === "global") {
       if (eventType === "server.connected" && activeSessionsQuery.data === undefined && !activeSessionsQuery.isFetching)

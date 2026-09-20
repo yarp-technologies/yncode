@@ -15,6 +15,8 @@ import { ModelV2 } from "../../model"
 import { ProviderV2 } from "../../provider"
 import { SessionSchema } from "../schema"
 
+const YarpNeuroProviderID = ProviderV2.ID.make("yarp-neuro")
+
 export class ModelNotSelectedError extends Schema.TaggedErrorClass<ModelNotSelectedError>()(
   "SessionRunnerModel.ModelNotSelectedError",
   {
@@ -85,6 +87,7 @@ const apiKey = (model: ModelV2.Info, credential?: Credential.Value) => {
   if (credential?.type === "oauth") return Auth.value(credential.access)
   const value = model.request.body.apiKey ?? model.api.settings?.apiKey
   if (typeof value === "string") return Auth.value(value)
+  return undefined
 }
 
 const withDefaults = (model: ModelV2.Info, route: AnyRoute) => {
@@ -154,10 +157,16 @@ export const fromCatalogModel = (
     )
   }
   if (resolved.api.type === "aisdk" && resolved.api.package === "@ai-sdk/openai-compatible" && resolved.api.url) {
+    const auth =
+      resolved.providerID === YarpNeuroProviderID
+        ? key === undefined
+          ? Auth.none
+          : Auth.header("x-bf-vk", key)
+        : key === undefined
+          ? Auth.none
+          : Auth.bearer(key)
     return Effect.succeed(
-      withDefaults(resolved, OpenAICompatibleChat.route)
-        .with({ auth: key === undefined ? Auth.none : Auth.bearer(key) })
-        .model({ id: resolved.api.id }),
+      withDefaults(resolved, OpenAICompatibleChat.route).with({ auth }).model({ id: resolved.api.id }),
     )
   }
   return Effect.fail(

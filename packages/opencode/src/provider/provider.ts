@@ -18,12 +18,13 @@ import { iife } from "@/util/iife"
 import { Global } from "@opencode-ai/core/global"
 import path from "path"
 import { pathToFileURL } from "url"
-import { Effect, Layer, Context, Schema, Types } from "effect"
+import { Duration, Effect, Layer, Context, Schema, Types } from "effect"
 import { EffectBridge } from "@/effect/bridge"
 import { InstanceState } from "@/effect/instance-state"
 import { EffectPromise } from "@/effect/promise"
 import { FSUtil } from "@opencode-ai/core/fs-util"
 import { isRecord } from "@/util/record"
+import { GlobalBus } from "@/bus/global"
 import { optional } from "@opencode-ai/core/schema"
 import { ProviderTransform } from "./transform"
 import { ProviderV2 } from "@opencode-ai/core/provider"
@@ -31,7 +32,7 @@ import { ModelV2 } from "@opencode-ai/core/model"
 import { ModelStatus } from "./model-status"
 import { RuntimeFlags } from "@/effect/runtime-flags"
 import { ProviderError } from "./error"
-import { YarpNeuroApiNpm, YarpNeuroBaseURL, YarpNeuroProviderID } from "../plugin/yarp-neuro"
+import { YarpNeuroApiNpm, YarpNeuroBaseURL, YarpNeuroProviderID, yarpNeuroFetch } from "../plugin/yarp-neuro"
 
 const OPENAI_HEADER_TIMEOUT_DEFAULT = 300_000
 
@@ -1414,6 +1415,7 @@ const layer = Layer.effect(
     const state = yield* InstanceState.make<State>(() =>
       Effect.gen(function* () {
         const bridge = yield* EffectBridge.make()
+        const directory = yield* InstanceState.directory
         const cfg = yield* config.get()
         const modelsDev = yield* modelsDevSvc.get()
         const catalog = mapValues(modelsDev, fromModelsDevProvider)
@@ -1737,6 +1739,67 @@ const layer = Layer.effect(
             delete providers[providerID]
             continue
           }
+        }
+
+        const yarpProviderID = ProviderV2.ID.make(YarpNeuroProviderID)
+        const yarpModels = plugins.find((item) => item.provider?.id === YarpNeuroProviderID)?.provider?.models
+        if (yarpModels) {
+          const refreshYarpNeuro = Effect.fn("Provider.refreshYarpNeuro")(function* () {
+            const pluginAuth = yield* auth.get(YarpNeuroProviderID).pipe(Effect.orDie)
+            if (pluginAuth?.type !== "api" || !isProviderAllowed(yarpProviderID)) return
+
+            const databaseProvider = database[yarpProviderID]
+            const provider = providers[yarpProviderID] ?? databaseProvider
+            if (!provider || !databaseProvider) return
+            const next = yield* Effect.promise(() => yarpModels(toPublicInfo(provider), { auth: pluginAuth })).pipe(
+              Effect.catch((cause) =>
+                Effect.logWarning("failed to refresh YarpNeuro models", { cause }).pipe(Effect.as(undefined)),
+              ),
+            )
+            if (!next) return
+
+            const models = Object.fromEntries(
+              Object.entries(next).map(([id, model]) => [
+                id,
+                {
+                  ...model,
+                  id: ModelV2.ID.make(id),
+                  providerID: yarpProviderID,
+                },
+              ]),
+            )
+            const requestFetch = yarpNeuroFetch(() =>
+              bridge.promise(
+                auth.get(YarpNeuroProviderID).pipe(
+                  Effect.orDie,
+                  Effect.map((value) => (value?.type === "api" ? { type: "api" as const, key: value.key } : undefined)),
+                ),
+              ),
+            )
+            databaseProvider.options = { ...databaseProvider.options, apiKey: "", fetch: requestFetch }
+            databaseProvider.models = models
+            if (providers[yarpProviderID]) {
+              providers[yarpProviderID].options = {
+                ...providers[yarpProviderID].options,
+                apiKey: "",
+                fetch: requestFetch,
+              }
+              providers[yarpProviderID].models = models
+            } else {
+              mergeProvider(yarpProviderID, {
+                source: "api",
+                key: pluginAuth.key,
+              })
+            }
+            GlobalBus.emit("event", {
+              directory,
+              payload: { type: "catalog.updated", properties: {} },
+            })
+          })
+
+          yield* Effect.forever(Effect.sleep(Duration.minutes(10)).pipe(Effect.andThen(refreshYarpNeuro()))).pipe(
+            Effect.forkScoped({ startImmediately: true }),
+          )
         }
 
         return {
