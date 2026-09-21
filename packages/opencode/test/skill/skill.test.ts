@@ -63,6 +63,21 @@ const withHome = <A, E, R>(home: string, self: Effect.Effect<A, E, R>) =>
       }),
   )
 
+const withBundledSkills = <A, E, R>(directory: string, self: Effect.Effect<A, E, R>) =>
+  Effect.acquireUseRelease(
+    Effect.sync(() => {
+      const previous = process.env.OPENCODE_BUNDLED_SKILLS
+      process.env.OPENCODE_BUNDLED_SKILLS = directory
+      return previous
+    }),
+    () => self,
+    (previous) =>
+      Effect.sync(() => {
+        if (previous === undefined) delete process.env.OPENCODE_BUNDLED_SKILLS
+        else process.env.OPENCODE_BUNDLED_SKILLS = previous
+      }),
+  )
+
 describe("skill", () => {
   it.live("registers the built-in imagegen skill", () =>
     provideTmpdirInstance(() =>
@@ -79,6 +94,23 @@ describe("skill", () => {
           }),
         )
       }),
+    ),
+  )
+
+  it.live("discovers skills from the bundled distribution directory", () =>
+    provideTmpdirInstance(() =>
+      withBundledSkills(
+        path.join(import.meta.dir, "../../skills"),
+        Effect.gen(function* () {
+          const skill = yield* Skill.Service
+          const list = (yield* skill.all()).filter((s) => s.location !== "<built-in>")
+
+          expect(list.find((item) => item.name === "brainstorming")).toBeDefined()
+          expect(list.find((item) => item.name === "verification-before-completion")).toBeDefined()
+          expect(list.find((item) => item.name === "claude-api")).toBeUndefined()
+          expect(list.find((item) => item.name === "theme-factory")).toBeUndefined()
+        }),
+      ),
     ),
   )
 

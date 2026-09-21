@@ -73,6 +73,22 @@ test("bundles the CLI outside the dev app archive", async () => {
   })
 })
 
+for (const channel of channels) {
+  test(`bundles the default skills for ${channel.channel}`, async () => {
+    const previous = process.env.OPENCODE_CHANNEL
+    process.env.OPENCODE_CHANNEL = channel.channel
+    const module = await import(`./electron-builder.config.ts?skills-resource=${channel.channel}`)
+    const config = module.default as Configuration
+    if (previous === undefined) delete process.env.OPENCODE_CHANNEL
+    else process.env.OPENCODE_CHANNEL = previous
+
+    expect(config.extraResources).toContainEqual({
+      from: "../opencode/skills/",
+      to: "skills/",
+    })
+  })
+}
+
 test("names release artifacts after YarpNeuro and the package version", async () => {
   const previous = process.env.OPENCODE_CHANNEL
   process.env.OPENCODE_CHANNEL = "prod"

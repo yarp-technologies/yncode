@@ -20,6 +20,7 @@ import { escapeHtml } from "@/util/html"
 
 const CLAUDE_EXTERNAL_DIR = ".claude"
 const AGENTS_EXTERNAL_DIR = ".agents"
+const BUNDLED_SKILLS_ENV = "OPENCODE_BUNDLED_SKILLS"
 const EXTERNAL_SKILL_PATTERN = "skills/**/SKILL.md"
 const OPENCODE_SKILL_PATTERN = "{skill,skills}/**/SKILL.md"
 const SKILL_PATTERN = "**/SKILL.md"
@@ -185,6 +186,11 @@ const discoverSkills = Effect.fnUntraced(function* (
   worktree: string,
 ) {
   const state: ScanState = { matches: new Set(), dirs: new Set() }
+
+  const bundled = process.env[BUNDLED_SKILLS_ENV]
+  if (bundled && (yield* fsys.isDir(bundled))) {
+    yield* scan(state, bundled, SKILL_PATTERN)
+  }
 
   const externalDirs: string[] = []
   if (!disableExternalSkills) {
