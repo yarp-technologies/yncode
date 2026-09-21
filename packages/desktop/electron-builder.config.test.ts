@@ -73,6 +73,17 @@ test("bundles the CLI outside the dev app archive", async () => {
   })
 })
 
+test("names release artifacts after YarpNeuro and the package version", async () => {
+  const previous = process.env.OPENCODE_CHANNEL
+  process.env.OPENCODE_CHANNEL = "prod"
+  const module = await import("./electron-builder.config.ts?artifact-name")
+  const config = module.default as Configuration
+  if (previous === undefined) delete process.env.OPENCODE_CHANNEL
+  else process.env.OPENCODE_CHANNEL = previous
+
+  expect(config.artifactName).toBe("yarp-neuro-${version}.${ext}")
+})
+
 for (const channel of ["beta", "prod"] as const) {
   test(`does not bundle the CLI in ${channel} builds`, async () => {
     const previous = process.env.OPENCODE_CHANNEL
