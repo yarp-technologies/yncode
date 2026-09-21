@@ -37,3 +37,16 @@ test("resolves blob URLs in the renderer before saving", async () => {
   expect(Array.from(await Bun.file(output).bytes())).toEqual([0, 1, 2])
   expect(executeJavaScript).toHaveBeenCalledWith(expect.stringContaining('fetch("blob:image")'), true)
 })
+
+test("saves image bytes when the renderer reports a generic MIME", async () => {
+  const output = join(tmpdir(), `yncode-image-${randomUUID()}.png`)
+  outputs.add(output)
+  const png = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="
+  const showSaveDialog = async (_options: SaveDialogOptions) => ({ canceled: false, filePath: output })
+  const executeJavaScript = mock(async () => `data:text/plain;base64,${png}`)
+  const webContents = { executeJavaScript } as unknown as WebContents
+
+  await saveImageSource("blob:image", webContents, showSaveDialog)
+
+  expect(Array.from(await Bun.file(output).bytes())).toEqual(Array.from(Buffer.from(png, "base64")))
+})

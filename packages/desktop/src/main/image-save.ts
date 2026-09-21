@@ -1,18 +1,21 @@
 import { writeFile } from "node:fs/promises"
 import type { SaveDialogOptions, SaveDialogReturnValue, WebContents } from "electron"
-import { decodeDataUrl, imageExtension } from "./image-data"
+import { decodeDataUrl, imageExtension, imageMime } from "./image-data"
 
 type ShowSaveDialog = (options: SaveDialogOptions) => Promise<SaveDialogReturnValue>
 
 export async function saveImageSource(source: string, webContents: WebContents, showSaveDialog: ShowSaveDialog) {
   const dataUrl = source.startsWith("data:") ? source : await resolveImageSource(source, webContents)
   const image = decodeDataUrl(dataUrl)
-  if (!image || !image.mime.startsWith("image/")) throw new Error("The image source cannot be saved")
+  if (!image) throw new Error("The image source cannot be saved")
 
-  const extension = imageExtension(image.mime)
+  const mime = image.mime.startsWith("image/") ? image.mime : imageMime(image.bytes)
+  if (!mime) throw new Error("The image source cannot be saved")
+
+  const extension = imageExtension(mime)
   const result = await showSaveDialog({
     defaultPath: `image.${extension}`,
-    filters: [{ name: image.mime, extensions: [extension] }],
+    filters: [{ name: mime, extensions: [extension] }],
   })
   if (result.canceled || !result.filePath) return
 
