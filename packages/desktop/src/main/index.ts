@@ -134,8 +134,11 @@ const main = Effect.gen(function* () {
         {
           label: "Sa&ve Image As…",
           click() {
-            void saveImageSource(parameters.srcURL, getTargetWebContents(browserWindow), (options) =>
-              dialog.showSaveDialog(options),
+            void saveImageSource(
+              parameters.srcURL,
+              getTargetWebContents(browserWindow),
+              (options) => dialog.showSaveDialog(options),
+              { x: parameters.x, y: parameters.y },
             ).catch((error) => {
               dialog.showErrorBox("Save Image Error", error instanceof Error ? error.message : String(error))
             })
