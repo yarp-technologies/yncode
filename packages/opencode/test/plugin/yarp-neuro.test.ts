@@ -54,6 +54,12 @@ test("discovers YarpNeuro models with the x-bf-vk header", async () => {
       npm: "@ai-sdk/openai",
     },
   })
+  expect(models["vendor/exact-model"]).toMatchObject({
+    capabilities: {
+      attachment: true,
+      input: { text: true, image: true },
+    },
+  })
 })
 
 test("does not follow YarpNeuro discovery redirects with the API key", async () => {

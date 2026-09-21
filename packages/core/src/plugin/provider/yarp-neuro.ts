@@ -64,7 +64,7 @@ export const YarpNeuroPlugin = define<HttpClient.HttpClient | EventV2.Service | 
           }
           model.capabilities = {
             tools: true,
-            input: ["text"],
+            input: ["text", "image"],
             output: ["text"],
           }
           model.status = "active"

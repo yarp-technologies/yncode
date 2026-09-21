@@ -5,8 +5,8 @@ import { createServer } from "node:net"
 import { homedir, tmpdir } from "node:os"
 import { join } from "node:path"
 import { getCACertificates, setDefaultCACertificates } from "node:tls"
-import type { Event } from "electron"
-import { app, BrowserWindow } from "electron"
+import type { BrowserView, Event, WebContents } from "electron"
+import { app, BrowserWindow, dialog, webContents } from "electron"
 
 import { Deferred, Effect, Fiber } from "effect"
 import contextMenu from "electron-context-menu"
@@ -49,6 +49,7 @@ import { migrate } from "./migrate"
 import { cleanupStoreFiles } from "./store-cleanup"
 import { startBackgroundCli } from "./background-cli"
 import { setNativeTranslations } from "./native-translations"
+import { saveImageSource } from "./image-save"
 
 const APP_NAMES: Record<string, string> = {
   dev: "YarpNeuro Dev",
@@ -85,6 +86,14 @@ function emitDeepLinks(urls: string[]) {
   if (win) sendDeepLinks(win, urls)
 }
 
+function getTargetWebContents(target: BrowserWindow | BrowserView | Electron.WebviewTag | WebContents) {
+  if ("webContents" in target) return target.webContents
+  if (!("getWebContentsId" in target)) return target
+  const contents = webContents.fromId(target.getWebContentsId())
+  if (!contents) throw new Error("The image view is no longer available")
+  return contents
+}
+
 async function killSidecar() {
   if (!server) return
   const current = server
@@ -113,7 +122,28 @@ function ensureLoopbackNoProxy() {
 }
 
 const main = Effect.gen(function* () {
-  contextMenu({ showSaveImageAs: true, showLookUpSelection: false, showSearchWithGoogle: false })
+  contextMenu({
+    showSaveImageAs: false,
+    showLookUpSelection: false,
+    showSearchWithGoogle: false,
+    append: (defaultActions, parameters, browserWindow) => {
+      if (parameters.mediaType !== "image") return []
+      if (/^https?:\/\//i.test(parameters.srcURL)) return [defaultActions.saveImageAs({})]
+
+      return [
+        {
+          label: "Sa&ve Image As…",
+          click() {
+            void saveImageSource(parameters.srcURL, getTargetWebContents(browserWindow), (options) =>
+              dialog.showSaveDialog(options),
+            ).catch((error) => {
+              dialog.showErrorBox("Save Image Error", error instanceof Error ? error.message : String(error))
+            })
+          },
+        },
+      ]
+    },
+  })
 
   // on macOS apps run in `/` which can cause issues with ripgrep
   try {

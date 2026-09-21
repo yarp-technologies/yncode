@@ -70,7 +70,9 @@ describe("YarpNeuroPlugin", () => {
       yield* addPlugin(http)
       yield* Deferred.await(started)
       yield* Effect.yieldNow
-      expect(yield* catalog.model.get(providerID, ModelV2.ID.make("startup-model"))).toBeDefined()
+      expect(yield* catalog.model.get(providerID, ModelV2.ID.make("startup-model"))).toMatchObject({
+        capabilities: { tools: true, input: ["text", "image"], output: ["text"] },
+      })
       expect(yield* catalog.model.get(providerID, ModelV2.ID.make("refreshed-model"))).toBeUndefined()
 
       yield* TestClock.adjust(Duration.minutes(10))

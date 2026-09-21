@@ -106,12 +106,12 @@ async function getModels(apiKey: string, existing: Record<string, Model>, reques
         capabilities: {
           temperature: template?.capabilities.temperature ?? false,
           reasoning: template?.capabilities.reasoning ?? false,
-          attachment: template?.capabilities.attachment ?? false,
+          attachment: template?.capabilities.attachment ?? true,
           toolcall: template?.capabilities.toolcall ?? true,
           input: {
             text: template?.capabilities.input.text ?? true,
             audio: template?.capabilities.input.audio ?? false,
-            image: template?.capabilities.input.image ?? false,
+            image: template?.capabilities.input.image ?? true,
             video: template?.capabilities.input.video ?? false,
             pdf: template?.capabilities.input.pdf ?? false,
           },
