@@ -3,7 +3,7 @@ import type { Auth, Model } from "@opencode-ai/sdk/v2"
 import { Schema } from "effect"
 
 export const YarpNeuroProviderID = "yarp-neuro"
-export const YarpNeuroBaseURL = "https://neuro.deyna.xyz/v1"
+export const YarpNeuroBaseURL = "https://neuro.tfcp.ru/v1"
 export const YarpNeuroApiNpm = "@ai-sdk/openai"
 const DEFAULT_ORIGIN = new URL(YarpNeuroBaseURL).origin
 const API_KEY_HEADER = "x-bf-vk"

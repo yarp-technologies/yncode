@@ -8,7 +8,7 @@ import { ModelV2 } from "../../model"
 
 const providerID = "yarp-neuro"
 const integrationID = Integration.ID.make(providerID)
-const baseURL = "https://neuro.deyna.xyz/v1"
+const baseURL = "https://neuro.tfcp.ru/v1"
 const refreshInterval = Duration.minutes(10)
 const modelIDPattern = /^[A-Za-z0-9][A-Za-z0-9._:/-]{0,255}$/
 const reservedModelIDs = new Set(["__proto__", "constructor", "prototype"])

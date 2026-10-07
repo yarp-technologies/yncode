@@ -50,7 +50,7 @@ test("discovers YarpNeuro models with the x-bf-vk header", async () => {
     name: "vendor/exact-model",
     api: {
       id: "vendor/exact-model",
-      url: "https://neuro.deyna.xyz/v1",
+      url: "https://neuro.tfcp.ru/v1",
       npm: "@ai-sdk/openai",
     },
   })
@@ -118,7 +118,7 @@ test("routes YarpNeuro model requests through x-bf-vk at runtime", async () => {
       return fetch(`${server.url}${url.pathname}`, init)
     },
   )
-  const request = new Request("https://neuro.deyna.xyz/v1/responses", {
+  const request = new Request("https://neuro.tfcp.ru/v1/responses", {
     headers: {
       Authorization: "Bearer should-not-be-sent",
     },
@@ -153,7 +153,7 @@ test("never forwards Authorization when YarpNeuro auth is unavailable", async ()
     },
   )
   await fetcher(
-    new Request("https://neuro.deyna.xyz/v1/chat/completions", {
+    new Request("https://neuro.tfcp.ru/v1/chat/completions", {
       headers: {
         Authorization: "Bearer should-not-be-sent",
         "x-bf-vk": "stale-key",
@@ -191,7 +191,7 @@ test("does not follow YarpNeuro runtime redirects with the API key", async () =>
       return fetch(`${redirect.url}${url.pathname}`, init)
     },
   )
-  const response = await fetcher(new Request("https://neuro.deyna.xyz/v1/chat/completions"))
+  const response = await fetcher(new Request("https://neuro.tfcp.ru/v1/chat/completions"))
 
   expect(response.status).toBe(302)
   expect(destinationRequests).toEqual([])

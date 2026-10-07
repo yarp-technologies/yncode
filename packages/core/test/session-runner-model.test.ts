@@ -107,7 +107,7 @@ describe("SessionRunnerModel", () => {
           ...model({
             type: "aisdk",
             package: "@ai-sdk/openai-compatible",
-            url: "https://neuro.deyna.xyz/v1",
+            url: "https://neuro.tfcp.ru/v1",
           }),
           providerID: ProviderV2.ID.make("yarp-neuro"),
         }),
@@ -116,7 +116,7 @@ describe("SessionRunnerModel", () => {
       const headers = yield* resolved.route.auth.apply({
         request: LLM.request({ model: resolved, prompt: "Hello" }),
         method: "POST",
-        url: "https://neuro.deyna.xyz/v1/chat/completions",
+        url: "https://neuro.tfcp.ru/v1/chat/completions",
         body: "{}",
         headers: Headers.empty,
       })

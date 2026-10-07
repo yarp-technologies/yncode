@@ -697,7 +697,7 @@ describe("ProviderTransform.options - gpt-5 textVerbosity", () => {
           providerID,
           api: {
             id: "gpt-5.5",
-            url: "https://neuro.deyna.xyz/v1",
+            url: "https://neuro.tfcp.ru/v1",
             npm: "@ai-sdk/openai",
           },
         },

@@ -48,7 +48,7 @@ describe("YarpNeuroPlugin", () => {
           provider.api = {
             type: "aisdk",
             package: "@ai-sdk/openai-compatible",
-            url: "https://neuro.deyna.xyz/v1",
+            url: "https://neuro.tfcp.ru/v1",
           }
         })
       })
@@ -100,7 +100,7 @@ describe("YarpNeuroPlugin", () => {
           provider.api = {
             type: "aisdk",
             package: "@ai-sdk/openai-compatible",
-            url: "https://neuro.deyna.xyz/v1",
+            url: "https://neuro.tfcp.ru/v1",
           }
         })
       })
